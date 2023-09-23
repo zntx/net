@@ -1,11 +1,10 @@
-#ifndef NET_NET_H
-#define NET_NET_H
+#ifndef net_src_H
+#define net_src_H
 
-#include "IpAddr.h" 
-#include "Option.h" 
-#include "Result.h" 
-#include "SocketAddr.h"  
-#include "TcpStream.h"  
-#include "net.h"
+#include "src/IpAddr.h" 
+#include "src/Option.h" 
+#include "src/Result.h" 
+#include "src/SocketAddr.h"  
+#include "src/TcpStream.h"  
 
 #endif

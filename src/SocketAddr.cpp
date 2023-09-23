@@ -16,7 +16,7 @@
 #include <linux/sockios.h>
 #include "SocketAddr.h"
 
-Result<SocketAddrV4> SocketAddrV4::parse_ascii(Slice slice)
+Result<SocketAddrV4, int> SocketAddrV4::parse_ascii(Slice slice)
 {
 }
 

@@ -3,7 +3,7 @@
 
 #include "Option.h"
 #include "Result.h"
-#include "slice/Slice.h"
+//#include "slice/Slice.h"
 #include "IpAddr.h"
 #include <netinet/tcp.h>
 #include <netinet/in.h>
@@ -16,7 +16,7 @@ class AddrParseError{
 class SocketAddrV4{
     struct sockaddr_in ss;
 public:
-    static Result<SocketAddrV4> parse_ascii(Slice slice);
+    static Result<SocketAddrV4,int> parse_ascii(Slice slice);
     //这是一个仅限夜间使用的实验性 API。( #101035addr_parse_ascii)
     //从字节片中解析 IPv4 套接字地址。
     SocketAddrV4();

@@ -18,7 +18,7 @@
 #include "TcpStream.h"
 
 
-Result<TcpStream> TcpStream::connect(std::string domain)
+Result<TcpStream,int> TcpStream::connect(std::string domain)
 {
 	std::size_t pos = domain.find(":"); // position of "live" in str
 	if( pos > 0) {
@@ -34,7 +34,7 @@ Result<TcpStream> TcpStream::connect(std::string domain)
 }
 
 
-Result<TcpStream> TcpStream::connect (const char* host, size_t port)
+Result<TcpStream,int> TcpStream::connect (const char* host, size_t port)
 {
 
     TcpStream strem;
@@ -65,7 +65,7 @@ Result<TcpStream> TcpStream::connect (const char* host, size_t port)
     return Ok(strem);
 }
 
-Result<TcpStream> connect_timeout( SocketAddr &addr , std::chrono::duration<int, std::ratio<1,2>>  timeout )
+Result<TcpStream,int> connect_timeout( SocketAddr &addr , std::chrono::duration<int, std::ratio<1,2>>  timeout )
 {
 
 }
@@ -83,7 +83,7 @@ size_t TcpStream::write( Slice &slice)
 }
 
 
-Result<SocketAddr> TcpStream::peer_addr()
+Result<SocketAddr,int> TcpStream::peer_addr()
 {
     struct sockaddr_in peerAddr;
     
@@ -98,7 +98,7 @@ Result<SocketAddr> TcpStream::peer_addr()
     return Ok(addr_);
 }
 
-Result<SocketAddr> TcpStream::local_addr()
+Result<SocketAddr,int> TcpStream::local_addr()
 {
     struct sockaddr_in connectedAddr;
     uint32_t len = sizeof(connectedAddr);
@@ -156,7 +156,7 @@ Result<SocketAddr> TcpStream::local_addr()
 //     flags |= O_NONBLOCK;
 //     ret = fcntl(fd, F_SETFL, flags);
 
-Result<Option<struct timeval>> TcpStream::read_timeout()
+Result<Option<struct timeval>,int> TcpStream::read_timeout()
 {
 
     struct timeval tv;
@@ -168,7 +168,7 @@ Result<Option<struct timeval>> TcpStream::read_timeout()
     Option<struct timeval> ret = Some(tv);
     return Ok(ret);
 }
-Result<Option<struct timeval>> TcpStream::write_timeout()
+Result<Option<struct timeval>,int> TcpStream::write_timeout()
 {
     struct timeval tv;
     tv.tv_sec = 10; tv.tv_usec = 0;
@@ -199,7 +199,7 @@ Result<Option<struct timeval>> TcpStream::write_timeout()
 //     return Ok();
 // }
 
-Result<bool> TcpStream::nodelay()
+Result<bool,int> TcpStream::nodelay()
 {
     int nodelay = 0;
 	int rc = setsockopt(this->fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(int));
@@ -231,7 +231,7 @@ Result<bool> TcpStream::nodelay()
 
 //     return Ok();
 // }
-Result<uint32_t> TcpStream::ttl()
+Result<uint32_t,int> TcpStream::ttl()
 {
     uint32_t x =3;
     return Ok(x);

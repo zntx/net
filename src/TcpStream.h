@@ -2,7 +2,7 @@
 #include <chrono>
 #include <string>
 #include <stdint.h>
-#include "slice/Slice.h"
+#include "buff.h"
 #include "Result.h"
 #include "SocketAddr.h"
 
@@ -16,34 +16,34 @@ class TcpStream
     int fd;
 
 public:
-    static Result<TcpStream> connect(std::string domain);
-    static Result<TcpStream> connect (const char* host, size_t port);
-    static Result<TcpStream> connect_timeout(SocketAddr &addr, std::chrono::duration<int, std::ratio<1,2>> timeout);
+    static Result<TcpStream,int> connect(std::string domain);
+    static Result<TcpStream,int> connect (const char* host, size_t port);
+    static Result<TcpStream,int> connect_timeout(SocketAddr &addr, std::chrono::duration<int, std::ratio<1,2>> timeout);
 
     size_t write(Slice &slice);
     size_t read(Slice &slice);
     /* Returns the socket address of the remote peer of this TCP connection. */
-    Result<SocketAddr> peer_addr();
-    Result<SocketAddr> local_addr();
+    Result<SocketAddr,int> peer_addr();
+    Result<SocketAddr,int> local_addr();
 
     //Result<void, string> shutdown(Shutdown how);
-    Result<TcpStream> try_clone();
+    Result<TcpStream,int> try_clone();
    // Result<void, string> set_read_timeout(struct timeval *tv);
     //Result<void, string> set_read_timeout(Option<duration> dur);
     //Result<void, string> set_write_timeout(struct timeval *tv);
    // Result<void, string> set_write_timeout(Option<duration> dur);
-    Result<Option<struct timeval>> read_timeout();
-    Result<Option<struct timeval>> write_timeout();
+    Result<Option<struct timeval>,int> read_timeout();
+    Result<Option<struct timeval>,int> write_timeout();
     //Result<Option<duration>, Error> read_timeout();
     //Result<Option<duration>, Error> write_timeout();
     //Result<void, string> set_linger(linger : Option<duration>);
     //Result<Option<duration>, Err> linger();
    // Result<void, string> set_nodelay(bool nodelay  );
-    Result<bool> nodelay();
-    Result<void> set_ttl(uint32_t ttl  );
-    Result<uint32_t> ttl();
-    Result<void> take_error();
-    Result<void> set_nonblocking(bool nonblocking);
+    Result<bool,int> nodelay();
+    Result<void,int> set_ttl(uint32_t ttl  );
+    Result<uint32_t, int> ttl();
+    Result<void,int> take_error();
+    Result<void,int> set_nonblocking(bool nonblocking);
 };
 
 

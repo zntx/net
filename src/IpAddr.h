@@ -1,8 +1,7 @@
 #ifndef IPADDR_H_H
 #define IPADDR_H_H
 #include <stdint.h>
-#include "slice/Slice.h"
-
+#include "buff.h"
 
 class Ipv4Addr{
 
