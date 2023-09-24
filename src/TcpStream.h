@@ -1,11 +1,9 @@
-
 #include <chrono>
 #include <string>
 #include <stdint.h>
-#include "buff.h"
+#include "buff/buff.h"
 #include "Result.h"
 #include "SocketAddr.h"
-
 
 using namespace std;
 using namespace std::chrono;
@@ -13,13 +11,13 @@ using namespace std::chrono;
 class TcpStream
 {
 
-    int fd;
-
 public:
-    static Result<TcpStream,int> connect(std::string domain);
-    static Result<TcpStream,int> connect (const char* host, size_t port);
-    static Result<TcpStream,int> connect_timeout(SocketAddr &addr, std::chrono::duration<int, std::ratio<1,2>> timeout);
+    int fd;
+    static Result<TcpStream,int> Connect(std::string domain);
+    static Result<TcpStream,int> Connect (const char* host, size_t port);
+    static Result<TcpStream,int> Connect_timeout(SocketAddr &addr, std::chrono::duration<int, std::ratio<1,2>> timeout);
 
+    TcpStream(int fd);
     size_t write(Slice &slice);
     size_t read(Slice &slice);
     /* Returns the socket address of the remote peer of this TCP connection. */
@@ -52,7 +50,9 @@ class TcpListener : TcpStream
 {
 
 public:
-    std::pair<TcpStream, SocketAddr> accept();
+    Result<TcpStream,int> Accept();
+
+    Result<TcpStream,int> AccepT_timeout(uint32_t msecond);
 
     static TcpStream bind(std::string addr);
 

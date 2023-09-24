@@ -3,24 +3,24 @@
 
 #include "Option.h"
 #include "Result.h"
-//#include "slice/Slice.h"
 #include "IpAddr.h"
 #include <netinet/tcp.h>
 #include <netinet/in.h>
 
 
 class AddrParseError{
-
+    
 };
 
 class SocketAddrV4{
-    struct sockaddr_in ss;
 public:
+    struct sockaddr_in sa;
+    static Result<SocketAddrV4,int> create(std::string ips, uint16_t port);
     static Result<SocketAddrV4,int> parse_ascii(Slice slice);
     //这是一个仅限夜间使用的实验性 API。( #101035addr_parse_ascii)
     //从字节片中解析 IPv4 套接字地址。
     SocketAddrV4();
-    SocketAddrV4(struct sockaddr_in ss);
+    SocketAddrV4(struct sockaddr_in s);
     SocketAddrV4(Ipv4Addr ip,  uint16_t port);
     SocketAddrV4(const SocketAddrV4 & addr);
     SocketAddrV4(SocketAddrV4 && addr);
@@ -30,27 +30,47 @@ public:
     Ipv4Addr ip();
     uint16_t port();
     void set_port(uint16_t port);
+    std::string to_string();
+
 
 };
+
+
 class SocketAddrV6{
+public:
+    struct sockaddr_in6 sa;  /**< IPV6 地址*/
+
+    static  Result<SocketAddrV6,int> create(std::string ips, uint16_t port);
+
+    SocketAddrV6(Ipv6Addr ip,  uint16_t port);
+    std::string to_string();
 
 };
 
+
+union SocketAddrIn {
+    struct sockaddr_in sin4;
+    struct sockaddr_in6 sin6;
+};
 
 class SocketAddr{
-    bool is_v4;
-    SocketAddrV4 V4;
-    SocketAddrV6 V6;
+
 public:
-    SocketAddr();
+    bool is_v4;
+    SocketAddrIn sa;
+public:
+    static  Result<SocketAddr,int> create(std::string ips, uint16_t port);
+
     SocketAddr(SocketAddrV4 v4);
     SocketAddr(SocketAddrV6 v6);
-
     SocketAddr(const SocketAddr & addr);
     SocketAddr(SocketAddr && addr);
 
     SocketAddr& operator=(SocketAddr&& slice);
     SocketAddr& operator=(const SocketAddr& slice); 
+
+
+    std::string to_string();
 };
 
 

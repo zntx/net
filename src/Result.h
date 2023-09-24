@@ -1026,7 +1026,7 @@ struct Result
             return storage().template get<U>();
         }
 
-        std::fprintf(stderr, "Attempting to unwrap an error Result\n");
+        std::fprintf(stderr, "%s:%d Attempting to unwrap an error Result\n", __FILE__, __LINE__);
         std::terminate();
     }
 
