@@ -15,9 +15,9 @@
 #include <linux/sockios.h>
 #include <netdb.h>
 #include <iostream>
-#include "TcpStream.h"
+#include "UdpSocket.h"
 
-Result<TcpStream, int> TcpStream::Connect(std::string domain)
+Result<UdpSocket, int> UdpSocket::Connect(std::string domain)
 {
     std::size_t pos = domain.find(":"); // position of "live" in str
     if (pos > 0)
@@ -26,19 +26,19 @@ Result<TcpStream, int> TcpStream::Connect(std::string domain)
         std::string ports = domain.substr(pos + 1); // get from "live" to the end
         // std::cout << host << ' ' << ports << '\n';
         int port = atoi(ports.c_str());
-        return TcpStream::Connect(host.c_str(), port);
+        return UdpSocket::Connect(host.c_str(), port);
     }
     else
     {
-        return TcpStream::Connect(domain.c_str(), 80);
+        return UdpSocket::Connect(domain.c_str(), 80);
     }
 }
 #if 0
 
-Result<TcpStream,int> TcpStream::connect (const char* host, size_t port)
+Result<UdpSocket,int> UdpSocket::connect (const char* host, size_t port)
 {
 
-    TcpStream strem;
+    UdpSocket strem;
     ///定义sockfd
     strem.fd = socket(AF_INET, SOCK_STREAM, 0);
     if (strem.fd < 0)
@@ -78,7 +78,7 @@ Result<TcpStream,int> TcpStream::connect (const char* host, size_t port)
 
 #endif
 
-Result<TcpStream, int> TcpStream::Connect(const char *host, size_t port)
+Result<UdpSocket, int> UdpSocket::Connect(const char *host, size_t port)
 {
     char host_ip[50] = {0};
 
@@ -108,7 +108,7 @@ Result<TcpStream, int> TcpStream::Connect(const char *host, size_t port)
     int strem = 0;
     if (addr.is_v4)
     {
-        strem = socket(AF_INET, SOCK_STREAM, 0);
+        strem = socket(AF_INET, SOCK_DGRAM, 0);
         if (strem < 0)
         {
             perror("setsockopet error\n");
@@ -146,10 +146,10 @@ Result<TcpStream, int> TcpStream::Connect(const char *host, size_t port)
         }
     }
 
-    return Ok(TcpStream(strem));
+    return Ok(UdpSocket(strem));
 }
 
-Result<TcpStream, int> Connect_timeout(SocketAddr &addr, std::chrono::duration<int, std::ratio<1, 2>> timeout)
+Result<UdpSocket, int> Connect_timeout(SocketAddr &addr, std::chrono::duration<int, std::ratio<1, 2>> timeout)
 {
     char host_ip[50] = {0};
 
@@ -222,25 +222,25 @@ Result<TcpStream, int> Connect_timeout(SocketAddr &addr, std::chrono::duration<i
         return Err(errno);
     }
 
-    return Ok(TcpStream(sockfd));
+    return Ok(UdpSocket(sockfd));
 }
 
-TcpStream::TcpStream(int fd)
+UdpSocket::UdpSocket(int fd)
 {
     this->fd = fd;
 }
 
-size_t TcpStream::read(Slice<uint8_t> &slice)
+size_t UdpSocket::read(Slice<uint8_t> slice)
 {
     return recv(this->fd, slice.addr, slice.len, 0);
 }
 
-size_t TcpStream::write(Slice<uint8_t> &slice)
+size_t UdpSocket::write(Slice<uint8_t> slice)
 {
     return send(this->fd, slice.addr, slice.len, 0);
 }
 
-Result<SocketAddr, int> TcpStream::peer_addr()
+Result<SocketAddr, int> UdpSocket::peer_addr()
 {
     struct sockaddr_in peerAddr;
 
@@ -256,7 +256,7 @@ Result<SocketAddr, int> TcpStream::peer_addr()
     return Ok(addr_);
 }
 
-Result<SocketAddr, int> TcpStream::local_addr()
+Result<SocketAddr, int> UdpSocket::local_addr()
 {
     struct sockaddr_in connectedAddr;
     uint32_t len = sizeof(connectedAddr);
@@ -272,7 +272,7 @@ Result<SocketAddr, int> TcpStream::local_addr()
     return Ok(addr_);
 }
 
-// Result<void, string> TcpStream::set_read_timeout(struct timeval *tv)
+// Result<void, string> UdpSocket::set_read_timeout(struct timeval *tv)
 // {
 //     if( tv != NULL) {
 //         socklen_t optlen = sizeof(struct timeval);
@@ -291,7 +291,7 @@ Result<SocketAddr, int> TcpStream::local_addr()
 //     return Ok();
 // }
 
-// Result<void, string> TcpStream::set_write_timeout(struct timeval *tv)
+// Result<void, string> UdpSocket::set_write_timeout(struct timeval *tv)
 // {
 //     if( tv != NULL) {
 //         socklen_t optlen = sizeof(struct timeval);
@@ -310,7 +310,7 @@ Result<SocketAddr, int> TcpStream::local_addr()
 //     return Ok();
 // }
 
-Result<Option<struct timeval>, int> TcpStream::read_timeout()
+Result<Option<struct timeval>, int> UdpSocket::read_timeout()
 {
 
     struct timeval tv;
@@ -323,7 +323,7 @@ Result<Option<struct timeval>, int> TcpStream::read_timeout()
     Option<struct timeval> ret = Some(tv);
     return Ok(ret);
 }
-Result<Option<struct timeval>, int> TcpStream::write_timeout()
+Result<Option<struct timeval>, int> UdpSocket::write_timeout()
 {
     struct timeval tv;
     tv.tv_sec = 10;
@@ -336,7 +336,7 @@ Result<Option<struct timeval>, int> TcpStream::write_timeout()
     return Ok(ret);
 }
 
-// Result<void, string> TcpStream::set_nodelay(bool _nodelay  )
+// Result<void, string> UdpSocket::set_nodelay(bool _nodelay  )
 // {
 //     int nodelay = 1;
 //     int cork = 1;
@@ -355,7 +355,7 @@ Result<Option<struct timeval>, int> TcpStream::write_timeout()
 //     return Ok();
 // }
 
-Result<bool, int> TcpStream::nodelay()
+Result<bool, int> UdpSocket::nodelay()
 {
     int nodelay = 0;
     int rc = setsockopt(this->fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(int));
@@ -366,7 +366,7 @@ Result<bool, int> TcpStream::nodelay()
         return Ok(false);
 }
 
-// Result<void, string> TcpStream::set_nonblocking(bool nonblocking)
+// Result<void, string> UdpSocket::set_nonblocking(bool nonblocking)
 // {
 //     int block_or_not = 1; // 设置非阻塞
 //     if(nonblocking)
@@ -381,88 +381,13 @@ Result<bool, int> TcpStream::nodelay()
 //     return Ok();
 // }
 
-// Result<void, string> TcpStream::set_ttl(uint32_t ttl  )
+// Result<void, string> UdpSocket::set_ttl(uint32_t ttl  )
 // {
 
 //     return Ok();
 // }
-Result<uint32_t, int> TcpStream::ttl()
+Result<uint32_t, int> UdpSocket::ttl()
 {
     uint32_t x = 3;
     return Ok(x);
-}
-
-Result<TcpStream,int> TcpListener::Accept( )
-{
-	int connect_fd = -1;
-
-	struct sockaddr_in sin4;  /**< IPV4 地址*/
-    struct sockaddr_in6 sin6; /**< IPV6 地址*/
-    int addr_size = sizeof(struct sockaddr_in);
-	
-    connect_fd = accept(this->fd, (struct sockaddr *)&(sin4), (socklen_t *)&addr_size);
-    if(connect_fd < 0)
-    {
-        //NETBASE_ERR("socket_accept failed: errno %d\n", errno);
-        return Err(errno);
-    }
-	
-	return Ok(TcpStream(connect_fd));
-
-}
-
-Result<TcpStream, int> TcpListener::AccepT_timeout(uint32_t msecond)
-{
-    /* 如果有超时时间，调用select判断在超时时间内，是否有数据传输进来 */
-    struct timeval timeout;
-    memset(&timeout, 0, sizeof(timeout));
-    timeout.tv_sec = msecond / 1000;
-    timeout.tv_usec = (msecond % 1000) * 1000;
-
-    fd_set fdset;
-    FD_ZERO(&fdset);
-    FD_SET(this->fd, &fdset);
-
-    do
-    {
-        int ret = select(this->fd + 1, &fdset, NULL, NULL, &timeout);
-        /* 在指定时间内，若检测到端口可读，先不做处理，等待后续使用accept接收数据，否则直接返回 */
-        if (ret > 0)
-        {
-            if (FD_ISSET(this->fd, &fdset))
-            {
-                ;
-            }
-            else
-            {
-                return Err(errno);
-            }
-        }
-        else if (0 == ret) // select超时
-        {
-            // NETBASE_ERR("time out.\n");
-            return Err(errno);
-        }
-        else if (errno == EINTR)
-        {
-            continue; // goto retry;
-        }
-        else // select错误
-        {
-            // NETBASE_ERR( "select err.\n");
-            return Err(errno);
-        }
-    } while (0);
-
-    struct sockaddr_in sin4;  /**< IPV4 地址*/
-    struct sockaddr_in6 sin6; /**< IPV6 地址*/
-    int addr_size = sizeof(struct sockaddr_in);
-    int connect_fd = accept(this->fd, (struct sockaddr *)&(sin4), (socklen_t *)&addr_size);
-    if (connect_fd < 0)
-    {
-        // NETBASE_ERR("socket_accept_with_timeout failed: errno %d\n", errno);
-        return Err(errno);
-    }
-
-    return Ok(TcpStream(connect_fd));
 }

@@ -90,7 +90,7 @@ inline types::None None()
     return types::None();
 }
 
-#define None None()
+//#define None None()
 
 template <typename T,
           typename CleanT = typename std::remove_reference<T>::type>
@@ -201,7 +201,7 @@ public:
         return initialized == false;
     }
 
-    T unwrap(const T &defaultValue)
+    T unwrap( )
     {
         if (!isEmpty())
         {

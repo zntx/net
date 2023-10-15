@@ -16,7 +16,7 @@
 #include <netdb.h>
 #include <iostream>
 #include "IpAddr.h"
-
+#include "zstdint.h"
 
 /* IP地址合法性判断宏定义,只针对IPv4地址 */
 #define NET_SWAP_32(x)						((((x)&0xff000000) >> 24)\
@@ -34,6 +34,7 @@
 #define IN_IS_ADDR_NETADDR(ip, mask)		(!((ip)&(~(mask))))	//网络地址，即主机号全零
 #define IN_IS_ADDR_UNSPECIFIED(ip)			(!(ip))	//地址为全零
 
+
 Result<Ipv4Addr, int> Ipv4Addr::create(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
 {
     if ( a > 255 || b> 255 || c >255 || d > 255)
@@ -41,12 +42,14 @@ Result<Ipv4Addr, int> Ipv4Addr::create(uint8_t a, uint8_t b, uint8_t c, uint8_t 
         return Err(-1);
     }
 
-    in_addr_t s_addr =   a *256*256*256 + b *256*256+ c * 256+ d;
+    //in_addr_t s_addr =   a *256*256*256 + b *256*256+ c * 256+ d;
 
-	struct in_addr ip_a;
-	ip_a.s_addr = htonl(s_addr);
-    return Ok(Ipv4Addr(ip_a));
+	// struct in_addr ip_a;
+	// ip_a.s_addr = htonl(s_addr);
+    Ipv4Addr ip(a, b, c, d);
+    return Ok(ip);
 }
+
 Result<Ipv4Addr, int> Ipv4Addr::create(std::string ips)
 {
 	return create(ips.c_str());
@@ -65,108 +68,251 @@ Result<Ipv4Addr, int> Ipv4Addr::create(const char *ips)
     return Ok(v4);
 }
 
-
-// Ipv4Addr::Ipv4Addr(const char *ips)
-// {
-//     struct in_addr ip_a;
-//     int ret = inet_pton(AF_INET, ips, &ip_a);
-//     if (ret <= 0)
-//     {
-//         //return Err(errno);
-//     }
-//     sin.s_addr = ip_a.s_addr;	
-// }
-
-Ipv4Addr::Ipv4Addr(struct in_addr &_sin)
+Ipv4Addr::Ipv4Addr(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
 {
-	sin.s_addr = _sin.s_addr;
+    _octets[0] = a;
+    _octets[1] = b;
+    _octets[2] = c;
+    _octets[3] = d;
 }
 
-Slice Ipv4Addr::octets()
+Ipv4Addr::Ipv4Addr(uint32_t d)
 {
-    return Slice(0, 0);
+    _octets[0] = (d & 0xff000000) >> 24;
+    _octets[1] = (d & 0x00ff0000) >> 16;
+    _octets[2] = (d & 0x0000ff00) >> 8;
+    _octets[3] = (d & 0x000000ff);
 }
-// 返回组成此地址的四个八位整数。
 
-// 对于特殊的“未指定”地址 （） 返回 true。0.0.0.0
+Ipv4Addr::Ipv4Addr(const uint8_t (&array)[4])
+{
+    _octets[0] = array[0];
+    _octets[1] = array[1];
+    _octets[2] = array[2];
+    _octets[3] = array[3];
+}
+
+Ipv4Addr::Ipv4Addr(struct in_addr _sin)
+{
+    sin.s_addr = _sin.s_addr;
+}
+
+bool Ipv4Addr::operator==(const Ipv4Addr &other)
+{
+    
+
+    return Arrays_Compare(this->_octets, other._octets);;
+}
+
+
+uint8_t (&Ipv4Addr::octets())[4]
+{
+    return this->_octets;
+}
+
 bool Ipv4Addr::is_unspecified()
 {
-    if( IN_IS_ADDR_UNSPECIFIED( &(this->sin) ) )
-		return true;
-	else
-		return false;
+    return u32::from_be_bytes(this->_octets) == 0;
 }
-// 如果这是环回地址 （），则返回 true
+
 bool Ipv4Addr::is_loopback()
 {
-	if( IN_IS_ADDR_LOOPBACK( this->sin.s_addr ) )
-		return true;
-	else
-		return false;
+    return this->_octets[0] == 127;
 }
 
 bool Ipv4Addr::is_private()
 {
-    return true;
+    if (this->_octets[0] == 10)
+    {
+        return true;
+    }
+
+    if (this->_octets[0] == 172 && this->_octets[1] >= 16 && this->_octets[1] <= 31)
+    {
+        return true;
+    }
+
+    if (this->_octets[0] == 192 && this->_octets[1] >= 168)
+    {
+        return true;
+    }
+
+    return false;
 }
-// 如果这是专用地址，则返回 true。
-/*
-10.0.0.0/8
-172.16.0.0/12
-192.168.0.0/16
- */
 
 bool Ipv4Addr::is_link_local()
 {
+    if (this->_octets[0] == 169 && this->_octets[1] >= 254)
+    {
+        return true;
+    }
+
+    return false;
+}
+
+bool Ipv4Addr::is_global()
+{
+    if (this->_octets[0] == 0 // "This network"
+        || this->is_private() || this->is_shared() || this->is_loopback() || this->is_link_local()
+        // addresses reserved for future protocols (`192.0.0.0/24`)
+        || (this->_octets[0] == 192 && this->_octets[1] == 0 && this->_octets[2] == 0) || this->is_documentation() || this->is_benchmarking() || this->is_reserved() || this->is_broadcast())
+        return false;
     return true;
 }
-// 如果地址是链路本地 （），则返回 true。169.254.0.0/16
-// 此属性由 IETF RFC 3927 定义。
+
+bool Ipv4Addr::is_shared()
+{
+    return this->_octets[0] == 100 && ((this->_octets[1] & 0b11000000) == 0b01000000);
+}
+
+bool Ipv4Addr::is_benchmarking()
+{
+    return this->_octets[0] == 198 && (this->_octets[1] & 0xfe) == 18;
+}
+
+bool Ipv4Addr::is_reserved()
+{
+    return this->_octets[0] & 240 == 240 && !this->is_broadcast();
+}
 
 bool Ipv4Addr::is_multicast()
 {
-
-    return true;
+    return this->_octets[0] >= 224 && this->_octets[0] <= 239;
 }
-// 如果这是多播地址，则返回 true（）。224.0.0.0/4
-// 组播地址在 和 之间具有最重要的八位字节。 由 IETF RFC 5771 定义。224239
+
 bool Ipv4Addr::is_broadcast()
 {
-	if( IN_IS_ADDR_MULTICAST( this->sin.s_addr ) )
-		return true;
-	else
-		return false;
+    uint8_t (&arr)[4]  = Ipv4Addr_Static::BROADCAST.octets();
+    return u32::from_be_bytes(this->_octets) == u32::from_be_bytes(arr);
 }
-// 如果这是广播地址，则返回 true（）。255.255.255.255
-// 广播地址的所有八位字节都设置为 IETF RFC 919 中定义的八位字节。255
 
 bool Ipv4Addr::is_documentation()
 {
-    // if( IN_IS_ADDR_BROADCAST( this->sin.s_addr ) )
-	// 	return true;
-	// else
-		return false;
+    if (this->_octets[0] == 192 && this->_octets[1] == 0 && this->_octets[2] == 2)
+        return true;
+    if (this->_octets[0] == 198 && this->_octets[1] == 51 && this->_octets[2] == 100)
+        return true;
+    if (this->_octets[0] == 203 && this->_octets[1] == 0 && this->_octets[2] == 113)
+        return true;
+
+    return false;
 }
-/*如果此地址在为文档指定的范围内，则返回 true。
 
-这是在 IETF RFC 5737 中定义的：
-192.0.2.0/24（测试网-1）
-198.51.100.0/24（测试网-2）
-203.0.113.0/24（测试网-3） */
+Ipv6Addr Ipv4Addr::to_ipv6_compatible()
+{
+    return Ipv6Addr(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, this->_octets[0], this->_octets[1], this->_octets[2], this->_octets[3]);
+}
 
-///
+Ipv6Addr Ipv4Addr::to_ipv6_mapped()
+{
+    return Ipv6Addr(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xFF, 0xFF, this->_octets[0], this->_octets[1], this->_octets[2], this->_octets[3]);
+}
+
+std::string Ipv4Addr::to_string()
+{
+    auto octets = this->_octets;
+
+    // If there are no alignment requirements, write the IP address directly to `f`.
+    // Otherwise, write it to a local buffer and then use `f.pad`.
+    // if fmt.precision().is_none() && fmt.width().is_none() {
+    //     write!(fmt, "{}.{}.{}.{}", octets[0], octets[1], octets[2], octets[3])
+    // } else {
+    //     const LONGEST_IPV4_ADDR: &str = "255.255.255.255";
+
+    //     let mut buf = DisplayBuffer::<{ LONGEST_IPV4_ADDR.len() }>::new();
+    //     // Buffer is long enough for the longest possible IPv4 address, so this should never fail.
+    //     write!(buf, "{}.{}.{}.{}", octets[0], octets[1], octets[2], octets[3]).unwrap();
+
+    //     fmt.pad(buf.as_str())
+    // }
+
+    return std::to_string(octets[0]) + "." + std::to_string(octets[1]) + "." + std::to_string(octets[2]) + "." + std::to_string(octets[3]);
+}
+
+
+
+namespace Ipv4Addr_Static {
+    /// An IPv4 address with the address pointing to localhost: `127.0.0.1`
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::net::Ipv4Addr;
+    ///
+    /// let addr = Ipv4Addr::LOCALHOST;
+    /// assert_eq!(addr, Ipv4Addr::new(127, 0, 0, 1));
+    /// ```
+    // #[stable(feature = "ip_constructors", since = "1.30.0")]
+    Ipv4Addr LOCALHOST(127, 0, 0, 1);
+
+    /// An IPv4 address representing an unspecified address: `0.0.0.0`
+    ///
+    /// This corresponds to the constant `INADDR_ANY` in other languages.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::net::Ipv4Addr;
+    ///
+    /// let addr = Ipv4Addr::UNSPECIFIED;
+    /// assert_eq!(addr, Ipv4Addr::new(0, 0, 0, 0));
+    /// ```
+    // #[doc(alias = "INADDR_ANY")]
+    // #[stable(feature = "ip_constructors", since = "1.30.0")]
+    Ipv4Addr UNSPECIFIED(0, 0, 0, 0);
+
+    /// An IPv4 address representing the broadcast address: `255.255.255.255`
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::net::Ipv4Addr;
+    ///
+    /// let addr = Ipv4Addr::BROADCAST;
+    /// assert_eq!(addr, Ipv4Addr::new(255, 255, 255, 255));
+    /// ```
+    // #[stable(feature = "ip_constructors", since = "1.30.0")]
+    Ipv4Addr BROADCAST(255, 255, 255, 255);
+}
 
 
 /*
-*
-*
-*
+
+*****************************************************************
+
 */
+namespace Ipv6Addr_Static
+{
+    /// An IPv6 address representing localhost: `::1`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::net::Ipv6Addr;
+    ///
+    /// let addr = Ipv6Addr::LOCALHOST;
+    /// assert_eq!(addr, Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1));
+    /// ```
+    // #[stable(feature = "ip_constructors", since = "1.30.0")]
+    Ipv6Addr LOCALHOST(0, 0, 0, 0, 0, 0, 0, 1);
+
+    /// An IPv6 address representing the unspecified address: `::`
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::net::Ipv6Addr;
+    ///
+    /// let addr = Ipv6Addr::UNSPECIFIED;
+    /// assert_eq!(addr, Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0));
+    /// ```
+    // #[stable(feature = "ip_constructors", since = "1.30.0")]
+    Ipv6Addr UNSPECIFIED(0, 0, 0, 0, 0, 0, 0, 0);
+
+}
 
 
 
-
-/**/
 Result<Ipv6Addr, int> Ipv6Addr::create(const char *ips)
 {
 	struct in6_addr _sin;
@@ -179,68 +325,456 @@ Result<Ipv6Addr, int> Ipv6Addr::create(const char *ips)
 	return Ok(sin6);
 }
 
-
-Ipv6Addr::Ipv6Addr(struct in6_addr &sin)
+Ipv6Addr::Ipv6Addr(struct in6_addr _sin)
 {
-	memcpy(&sin6, &sin, sizeof(struct in6_addr));
+    sin = _sin;
+}
+
+Ipv6Addr::Ipv6Addr(uint16_t a, uint16_t b, uint16_t c, uint16_t d, uint16_t e, uint16_t f, uint16_t g, uint16_t h)
+{
+    addr8[0] = a >> 8;
+    addr8[1] = a & 0xff;
+    addr8[2] = b >> 8;
+    addr8[3] = b & 0xff;
+    addr8[4] = c >> 8;
+    addr8[5] = c & 0xff;
+    addr8[6] = d >> 8;
+    addr8[7] = d & 0xff;
+    addr8[8] = e >> 8;
+    addr8[9] = e & 0xff;
+    addr8[10] = f >> 8;
+    addr8[11] = f & 0xff;
+    addr8[12] = g >> 8;
+    addr8[13] = g & 0xff;
+    addr8[14] = h >> 8;
+    addr8[15] = h & 0xff;
+}
+
+Ipv6Addr::Ipv6Addr(uint8_t a1, uint8_t a2, uint8_t b1, uint8_t b2, uint8_t c1, uint8_t c2, uint8_t d1, uint8_t d2, uint8_t e1, uint8_t e2, uint8_t f1, uint8_t f2, uint8_t g1, uint8_t g2, uint8_t h1, uint8_t h2)
+{
+    addr8[0] = a1;
+    addr8[1] = a2;
+    addr8[2] = b1;
+    addr8[3] = b2;
+    addr8[4] = c1;
+    addr8[5] = c2;
+    addr8[6] = d1;
+    addr8[7] = d2;
+    addr8[8] = e1;
+    addr8[9] = e2;
+    addr8[10] = f1;
+    addr8[11] = f2;
+    addr8[12] = g1;
+    addr8[13] = g2;
+    addr8[14] = h1;
+    addr8[15] = h2;
+}
+
+uint16_t Ipv6Addr::segments(uint32_t index)
+{
+    if (index > 7)
+        return 0;
+    uint8_t a =  this->addr8[index];
+    uint8_t b = this->addr8[index + 1];
+    //u16  tmp = u16::from_be_bytes( a, b);
+
+    return a *256 + b;
+}
+
+bool Ipv6Addr::is_unspecified()
+{
+    // return u128::from_be_bytes(this->_octets) == u128::from_be_bytes(Ipv6Addr::UNSPECIFIED.octets());
+    return Arrays_Compare(this->addr8, Ipv6Addr_Static::UNSPECIFIED.octets());
 }
 
 bool Ipv6Addr::is_loopback()
 {
+    // return u128::from_be_bytes(this->_octets) == u128::from_be_bytes(Ipv6Addr::LOCALHOST.octets());
+    return Arrays_Compare(this->addr8, Ipv6Addr_Static::LOCALHOST.octets());
+}
 
+bool Ipv6Addr::is_global()
+{
+    return !(this->is_unspecified() || this->is_loopback()
+        // IPv4-mapped Address (`::ffff:0:0/96`)
+        || (this->segments(0) == 0 && this->segments(1) == 0 && this->segments(2) == 0 && this->segments(3) == 0 && this->segments(4) == 0 && this->segments(5) == 0xff)
+        // IPv4-IPv6 Translat. (`64:ff9b:1::/48`)
+        || (this->segments(0) == 64 && this->segments(1) == 0xff9b && this->segments(2) == 1)
+        // Discard-Only Address Block (`100::/64`)
+        //|| matches!(self.segments(), [0x100, 0, 0, 0, _, _, _, _])
+        || (this->segments(0) == 0x100 && this->segments(1) == 0 && this->segments(2) == 0 && this->segments(3) == 0)
+        // IETF Protocol Assignments (`2001::/23`)
+        //|| (matches!(self.segments(), [0x2001, b, _, _, _, _, _, _] if b < 0x200)
+        || ((this->segments(0) == 0x2001 && this->segments(1) < 0x200) 
+            && !(
+                // Port Control Protocol Anycast (`2001:1::1`)
+                // u128::from_be_bytes(this->_octets) == 0x20010001000000000000000000000001
+                Arrays_Compare(this->addr8, (uint8_t[]){0x20, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01})
+                // Traversal Using Relays around NAT Anycast (`2001:1::2`)
+                //|| u128::from_be_bytes(this->_octets) == 0x20010001000000000000000000000002
+                || Arrays_Compare(this->addr8, (uint8_t[]){0x20, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02})
+                // AMT (`2001:3::/32`)
+                //|| matches!(self.segments(), [0x2001, 3, _, _, _, _, _, _])
+                || (this->segments(0) == 0x2001 && this->segments(1) == 3)
+                // AS112-v6 (`2001:4:112::/48`)
+                //|| matches!(self.segments(), [0x2001, 4, 0x112, _, _, _, _, _])
+                || (this->segments(0) == 0x2001 && this->segments(1) == 4 && this->segments(2) == 0x112)
+                // ORCHIDv2 (`2001:20::/28`)
+                //|| matches!(self.segments(), [0x2001, b, _, _, _, _, _, _] if b >= 0x20 && b <= 0x2F)
+                || (this->segments(0) == 0x2001 && this->segments(1) >= 0x20 && this->segments(1) <= 0x2F)
+                || (this->segments(0) == 0x2001 && this->segments(1) == 3)
+            )
+        ) 
+    || this->is_documentation() 
+    || this->is_unique_local() 
+    || this->is_unicast_link_local()
+    );
+}
 
-    if (IN6_IS_ADDR_LOOPBACK(&this->sin6)) {
-        //std::cout << "This is a link-local address" << std::endl;
-		return true;
-    } else {
-       // std::cout << "This is not a link-local address" << std::endl;
-	   return false;
+bool Ipv6Addr::is_unique_local()
+{
+    return (this->segments(0) & 0xfe00) == 0xfc00;
+}
+
+// #[inline]
+bool Ipv6Addr::is_unicast()
+{
+    return !this->is_multicast();
+}
+
+bool Ipv6Addr::is_unicast_link_local()
+{
+    return (this->segments(0) & 0xffc0) == 0xfe80;
+}
+
+bool Ipv6Addr::is_documentation()
+{
+    return (this->segments(0) == 0x2001) && (this->segments(1) == 0xdb8);
+}
+
+bool Ipv6Addr::is_benchmarking()
+{
+    return (this->segments(0) == 0x2001) && (this->segments(1) == 0x2) && (this->segments(2) == 0);
+}
+
+bool Ipv6Addr::is_unicast_global()
+{
+    return this->is_unicast() && !this->is_loopback() && !this->is_unicast_link_local() && !this->is_unique_local() && !this->is_unspecified() && !this->is_documentation() && !this->is_benchmarking();
+}
+
+Option<Ipv6Addr::Ipv6MulticastScope> Ipv6Addr::multicast_scope()
+{
+    if (this->is_multicast())
+    {
+        uint16_t ret = this->segments(0) & 0x000f;
+        switch (ret)
+        {
+        case 1:
+            return Some(Ipv6Addr::Ipv6MulticastScope::InterfaceLocal);
+            break;
+        case 2:
+            return Some(Ipv6Addr::Ipv6MulticastScope::LinkLocal);
+            break;
+        case 3:
+            return Some(Ipv6Addr::Ipv6MulticastScope::RealmLocal);
+            break;
+        case 4:
+            return Some(Ipv6Addr::Ipv6MulticastScope::AdminLocal);
+            break;
+        case 5:
+            return Some(Ipv6Addr::Ipv6MulticastScope::SiteLocal);
+            break;
+        case 8:
+            return Some(Ipv6Addr::Ipv6MulticastScope::OrganizationLocal);
+            break;
+        case 14:
+            return Some(Ipv6Addr::Ipv6MulticastScope::Global);
+            break;
+        default:
+            return None();
+            break;
+        }
+    }
+    else
+    {
+        return None();
     }
 }
 
-bool Ipv6Addr::is_link_local()
+bool Ipv6Addr::is_multicast()
 {
-    if (IN6_IS_ADDR_LINKLOCAL( &this->sin6)) {
-        //std::cout << "This is a link-local address" << std::endl;
-		return true;
-    } else {
-       // std::cout << "This is not a link-local address" << std::endl;
-	   return false;
+    return (this->segments(0) & 0xff00) == 0xff00;
+}
+
+Option<Ipv4Addr> Ipv6Addr::to_ipv4_mapped()
+{
+    if (this->addr8[0] == 0 && this->addr8[1] == 0 && this->addr8[2] == 0 &&
+        this->addr8[3] == 0 && this->addr8[4] == 0 && this->addr8[5] == 0 &&
+        this->addr8[6] == 0 && this->addr8[7] == 0 && this->addr8[8] == 0 &&
+        this->addr8[9] == 0 && this->addr8[10] == 0xff && this->addr8[11] == 0xff)
+    {
+        Ipv4Addr ipv4(this->addr8[12], this->addr8[13], this->addr8[14], this->addr8[15]);
+        return Some(ipv4);
+    }
+
+    return None();
+}
+
+/// Converts this address to an [`IPv4` address] if it is either
+/// an [IPv4-compatible] address as defined in [IETF RFC 4291 section 2.5.5.1],
+/// or an [IPv4-mapped] address as defined in [IETF RFC 4291 section 2.5.5.2],
+/// otherwise returns [`None`].
+///
+/// Note that this will return an [`IPv4` address] for the IPv6 loopback address `::1`. Use
+/// [`Ipv6Addr::to_ipv4_mapped`] to avoid this.
+///
+/// `::a.b.c.d` and `::ffff:a.b.c.d` become `a.b.c.d`. `::1` becomes `0.0.0.1`.
+/// All addresses *not* starting with either all zeroes or `::ffff` will return `None`.
+///
+/// [`IPv4` address]: Ipv4Addr
+/// [IPv4-compatible]: Ipv6Addr#ipv4-compatible-ipv6-addresses
+/// [IPv4-mapped]: Ipv6Addr#ipv4-mapped-ipv6-addresses
+/// [IETF RFC 4291 section 2.5.5.1]: https://tools.ietf.org/html/rfc4291#section-2.5.5.1
+/// [IETF RFC 4291 section 2.5.5.2]: https://tools.ietf.org/html/rfc4291#section-2.5.5.2
+///
+/// # Examples
+///
+/// ```
+/// use std::net::{Ipv4Addr, Ipv6Addr};
+///
+/// assert_eq!(Ipv6Addr::new(0xff00, 0, 0, 0, 0, 0, 0, 0).to_ipv4(), None);
+/// assert_eq!(Ipv6Addr::new(0, 0, 0, 0, 0, 0xffff, 0xc00a, 0x2ff).to_ipv4(),
+///            Some(Ipv4Addr::new(192, 10, 2, 255)));
+/// assert_eq!(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1).to_ipv4(),
+///            Some(Ipv4Addr::new(0, 0, 0, 1)));
+/// ```
+// #[rustc_const_stable(feature = "const_ip_50", since = "1.50.0")]
+// #[stable(feature = "rust1", since = "1.0.0")]
+// #[must_use = "this returns the result of the operation, \
+    //               without modifying the original"]
+// #[inline]
+// Option<Ipv4Addr> to_ipv4(&self)
+// {
+//     if let [0, 0, 0, 0, 0, 0 | 0xffff, ab, cd] = self.segments() {
+//         let [a, b] = ab.to_be_bytes();
+//         let [c, d] = cd.to_be_bytes();
+//         Some(Ipv4Addr::new(a, b, c, d))
+//     } else {
+//         None
+//     }
+// }
+
+/// Converts this address to an `IpAddr::V4` if it is an IPv4-mapped addresses, otherwise it
+/// returns self wrapped in an `IpAddr::V6`.
+///
+/// # Examples
+///
+/// ```
+/// #![feature(ip)]
+/// use std::net::Ipv6Addr;
+///
+/// assert_eq!(Ipv6Addr::new(0, 0, 0, 0, 0, 0xffff, 0x7f00, 0x1).is_loopback(), false);
+/// assert_eq!(Ipv6Addr::new(0, 0, 0, 0, 0, 0xffff, 0x7f00, 0x1).to_canonical().is_loopback(), true);
+/// ```
+// #[rustc_const_unstable(feature = "const_ipv6", issue = "76205")]
+// #[unstable(feature = "ip", issue = "27709")]
+// #[must_use = "this returns the result of the operation, \
+    //               without modifying the original"]
+// #[inline]
+IpAddr Ipv6Addr::to_canonical()
+{
+    Option<Ipv4Addr> mapped = this->to_ipv4_mapped();
+    if (!mapped.isEmpty())
+    {
+        Ipv4Addr _mapped = mapped.unwrap();
+
+        return IpAddr(_mapped);
+    }
+    return IpAddr(*this);
+}
+
+/// Returns the sixteen eight-bit integers the IPv6 address consists of.
+///
+/// ```
+/// use std::net::Ipv6Addr;
+///
+/// assert_eq!(Ipv6Addr::new(0xff00, 0, 0, 0, 0, 0, 0, 0).octets(),
+///            [255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+/// ```
+// #[rustc_const_stable(feature = "const_ip_32", since = "1.32.0")]
+// #[stable(feature = "ipv6_to_octets", since = "1.12.0")]
+// #[must_use]
+// #[inline]
+
+uint8_t (&Ipv6Addr::octets())[16]
+{
+    this->addr8;
+}
+//};
+
+/// Write an Ipv6Addr, conforming to the canonical style described by
+/// [RFC 5952](https://tools.ietf.org/html/rfc5952).
+// #[stable(feature = "rust1", since = "1.0.0")]
+// impl fmt::Display for Ipv6Addr {
+std::string Ipv6Addr::to_string()
+{
+    // fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    //  If there are no alignment requirements, write the IP address directly to `f`.
+    //  Otherwise, write it to a local buffer and then use `f.pad`.
+    // if f.precision().is_none() && f.width().is_none() {
+    // let segments = self.segments();
+
+    // Special case for :: and ::1; otherwise they get written with the
+    // IPv4 formatter
+    if (this->is_unspecified())
+    {
+        return std::string("::");
+    }
+    else if (this->is_loopback())
+    {
+        return std::string("::1");
+    }
+    else
+    {
+#if 0
+        Option<Ipv4Addr> ipv4 = this->to_ipv4();
+        if (!ipv4.isEmpty())
+        {
+            Ipv4Addr _ipv4 = ipv4.unwrap();
+            //match segments[5]
+            {
+
+                if (this->segments(5) == 0)
+                    // IPv4 Compatible address
+                    return "::{}" + ipv4.to_string();
+                // IPv4 Mapped address
+                else if (this->segments(5) == 0xff)
+                    return "::ffff:{}" + ipv4.to_string();
+                else
+                // _ => unreachable!(),
+            }
+            else
+            {
+                std::stringstream ss;
+                bool is_zero = false;
+                for (int i = 0; i < 8; i++)
+                {
+                    ss << std::hex << this->segments(i);
+                }
+
+                return ss.str();
+                // #[derive(Copy, Clone, Default)]
+                //  struct Span {
+                //      uint32_t start;
+                //      uint32_t len ;
+                //  };
+
+                // Find the inner 0 span
+
+                // Span longest ;
+                // Span current ;
+
+                // for (i, &segment) in segments.iter().enumerate() {
+                //     if segment == 0 {
+                //         if current.len == 0 {
+                //             current.start = i;
+                //         }
+
+                //         current.len += 1;
+
+                //         if current.len > longest.len {
+                //             longest = current;
+                //         }
+                //     } else {
+                //         current = Span::default();
+                //     }
+                // }
+
+                // /// Write a colon-separated part of the address
+                // //#[inline]
+                // //fn fmt_subslice(f: &mut fmt::Formatter<'_>, chunk: &[u16]) -> fmt::Result {
+                //     if let Some((first, tail)) = chunk.split_first() {
+                //         write!(f, "{:x}", first)?;
+                //         for segment in tail {
+                //             f.write_char(':')?;
+                //             write!(f, "{:x}", segment)?;
+                //         }
+                //     }
+                //     Ok(())
+                // }
+
+                // if zeroes.len > 1 {
+                //     fmt_subslice(f, &segments[..zeroes.start])?;
+                //     f.write_str("::")?;
+                //     fmt_subslice(f, &segments[zeroes.start + zeroes.len..])
+                // } else {
+                //     fmt_subslice(f, &segments)
+                // }
+            }
+            // } else {
+            //     const LONGEST_IPV6_ADDR: &str = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff";
+
+            //     let mut buf = DisplayBuffer::<{ LONGEST_IPV6_ADDR.len() }>::new();
+            //     // Buffer is long enough for the longest possible IPv6 address, so this should never fail.
+            //     write!(buf, "{}", self).unwrap();
+
+            //     f.pad(buf.as_str())
+            // }
+        }
+#endif
     }
 }
 
-bool Ipv6Addr::is_broadcast()
+Ipv6Addr::Ipv6Addr(const uint8_t (&arr)[16])
 {
-    if (IN6_IS_ADDR_MULTICAST( &this->sin6)) {
-        //std::cout << "This is a link-local address" << std::endl;
-		return true;
-    } else {
-       // std::cout << "This is not a link-local address" << std::endl;
-	   return false;
+}
+
+Ipv6Addr::Ipv6Addr(const uint16_t (&arr)[8])
+{
+}
+
+bool Ipv6Addr::operator==(const Ipv6Addr &other)
+{
+    return Arrays_Compare(this->addr8, other.addr8);
+}
+
+
+/*******************************************************************
+ * 
+ * 
+ * 
+ * 
+ * 
+ * 
+********************************************************************/
+// #[stable(feature = "rust1", since = "1.0.0")]
+// impl fmt::Debug for Ipv6Addr {
+//     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         fmt::Display::fmt(self, fmt)
+//     }
+// }
+
+// #[stable(feature = "ip_cmp", since = "1.16.0")]
+
+Result<IpAddr, int> IpAddr::create(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
+{
+    Result<Ipv4Addr, int>  ipv4 = Ipv4Addr::create(a, b, c, d);
+    if ( ipv4.isOk())
+    {
+        Ipv4Addr ips = ipv4.unwrap();
+
+        IpAddr ip_addr(ips);
+        return Ok( ip_addr );
     }
+
+    int error = ipv4.unwrapErr();
+
+    return Err( error);
 }
 
-
-
-
-/*
-*
-*
-*/
-
-IpAddr::IpAddr(Ipv4Addr &v4)
+Result<IpAddr, int> IpAddr::create( std::string host)
 {
-	sin4.s_addr = v4.sin.s_addr;
-    is_v4 = true;
-}
-IpAddr::IpAddr(Ipv6Addr &v6)
-{
-    memcpy(&sin6  , &v6.sin6, sizeof(struct in6_addr));
-    is_v4 = false;
-}
-
-IpAddr::~IpAddr()
-{
+    return create(host.c_str());
 }
 
 Result<IpAddr, int> IpAddr::create(const char *host)
@@ -287,3 +821,215 @@ Result<IpAddr, int> IpAddr::create(const char *host)
         }
     }
 }
+
+IpAddr::IpAddr(Ipv4Addr ipv4)
+{
+    this->is_v4 = true;
+    this->sin4 = ipv4;
+}
+
+IpAddr::IpAddr(Ipv6Addr ipv6)
+{
+    this->is_v4 = false;
+    this->sin6 = ipv6;
+}
+
+IpAddr::IpAddr(const uint8_t (&arr)[4])
+{
+    this->is_v4 = true;
+    this->sin4 = Ipv4Addr(arr);
+    //Arrays_Copy(this->V4._octets, arr);
+}
+
+IpAddr::IpAddr(const uint8_t (&arr)[16])
+{
+    this->is_v4 = false;
+    this->sin6 = Ipv6Addr(arr);
+}
+
+IpAddr::IpAddr(const uint16_t (&arr)[8])
+{
+    this->is_v4 = false;
+    this->sin6 = Ipv6Addr(arr);
+}
+
+bool IpAddr::operator==(const IpAddr &other)
+{
+    if (this->is_v4 != other.is_v4)
+        return false;
+
+    if (this->is_v4)
+    {
+        return this->V4 == other.V4;
+    }
+    else
+    {
+        return this->V6 == other.V6;
+    }
+}
+
+bool IpAddr::operator==(const Ipv4Addr &other)
+{
+    if (this->is_ipv6())
+        return false;
+
+    return this->sin4 == other;
+}
+
+bool IpAddr::operator==(const Ipv6Addr &other)
+{
+    if (this->is_ipv4())
+        return false;
+
+    return this->sin6 == other;
+}
+
+bool IpAddr::is_unspecified()
+{
+    if (this->is_v4)
+    {
+        return this->sin4.is_unspecified();
+    }
+    else
+    {
+        return this->sin6.is_unspecified();
+    }
+}
+
+bool IpAddr::is_loopback()
+{
+    if (this->is_v4)
+    {
+        return this->sin4.is_loopback();
+    }
+    else
+    {
+        return this->sin6.is_loopback();
+    }
+}
+
+bool IpAddr::is_global()
+{
+    if (this->is_v4)
+    {
+        return this->sin4.is_global();
+    }
+    else
+    {
+        return this->sin6.is_global();
+    }
+}
+
+bool IpAddr::is_multicast()
+{
+    if (this->is_v4)
+    {
+        return this->sin4.is_multicast();
+    }
+    else
+    {
+        return this->sin6.is_multicast();
+    }
+}
+
+bool IpAddr::is_documentation()
+{
+    if (this->is_v4)
+    {
+        return this->sin4.is_documentation();
+    }
+    else
+    {
+        return this->sin6.is_documentation();
+    }
+}
+
+bool IpAddr::is_benchmarking()
+{
+    if (this->is_v4)
+    {
+        return this->sin4.is_benchmarking();
+    }
+    else
+    {
+        return this->sin6.is_benchmarking();
+    }
+}
+
+bool IpAddr::is_ipv4()
+{
+    return this->is_v4;
+}
+
+bool IpAddr::is_ipv6()
+{
+    return !this->is_v4;
+}
+
+IpAddr IpAddr::to_canonical()
+{
+    if (this->is_v4)
+    {
+        return this->sin4;
+    }
+    else
+    {
+        return this->sin6.to_canonical();
+    }
+}
+
+std::string IpAddr::to_string()
+{
+    if (this->is_v4)
+    {
+        return this->sin4.to_string();
+    }
+    else
+    {
+        return this->sin6.to_string();
+    }
+}
+
+
+// #[stable(feature = "i128", since = "1.26.0")]
+// impl From<Ipv6Addr> for u128 {
+//     /// Convert an `Ipv6Addr` into a host byte order `u128`.
+//     ///
+//     /// # Examples
+//     ///
+//     /// ```
+//     /// use std::net::Ipv6Addr;
+//     ///
+//     /// let addr = Ipv6Addr::new(
+//     ///     0x1020, 0x3040, 0x5060, 0x7080,
+//     ///     0x90A0, 0xB0C0, 0xD0E0, 0xF00D,
+//     /// );
+//     /// assert_eq!(0x102030405060708090A0B0C0D0E0F00D_u128, u128::from(addr));
+//     /// ```
+//     #[inline]
+//     fn from(ip: Ipv6Addr) -> u128 {
+//         u128::from_be_bytes(ip.octets)
+//     }
+// }
+// #[stable(feature = "i128", since = "1.26.0")]
+// impl From<u128> for Ipv6Addr {
+//     /// Convert a host byte order `u128` into an `Ipv6Addr`.
+//     ///
+//     /// # Examples
+//     ///
+//     /// ```
+//     /// use std::net::Ipv6Addr;
+//     ///
+//     /// let addr = Ipv6Addr::from(0x102030405060708090A0B0C0D0E0F00D_u128);
+//     /// assert_eq!(
+//     ///     Ipv6Addr::new(
+//     ///         0x1020, 0x3040, 0x5060, 0x7080,
+//     ///         0x90A0, 0xB0C0, 0xD0E0, 0xF00D,
+//     ///     ),
+//     ///     addr);
+//     /// ```
+//     #[inline]
+//     fn from(ip: u128) -> Ipv6Addr {
+//         Ipv6Addr::from(ip.to_be_bytes())
+//     }
+// }

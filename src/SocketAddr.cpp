@@ -14,10 +14,16 @@
 #include <net/if.h>
 #include <net/route.h>
 #include <linux/sockios.h>
+#ifndef _WIN32
+#include <netdb.h>
+#endif
 #include "SocketAddr.h"
 
-Result<SocketAddrV4, int> SocketAddrV4::parse_ascii(Slice slice)
+
+
+Result<SocketAddrV4, int> SocketAddrV4::parse_ascii(Slice<uint8_t> slice)
 {
+    return Err(1);
 }
 
 SocketAddrV4::SocketAddrV4(Ipv4Addr ip, uint16_t port)
@@ -52,7 +58,7 @@ SocketAddrV4 &SocketAddrV4::operator=(const SocketAddrV4 &addr) // 赋值运算�
 
 Ipv4Addr SocketAddrV4::ip()
 {
-    return Ipv4Addr(this->sa.sin_addr);
+    return Ipv4Addr(this->sa.sin_addr.s_addr);
 }
 uint16_t SocketAddrV4::port()
 {

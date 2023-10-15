@@ -1,8 +1,7 @@
-/*
+#ifndef UDP_SOCKET_H
+#define UDP_SOCKET_H
 
-
-1.0.0 · source · [−]
-*/#include <chrono>
+#include <chrono>
 #include <string>
 #include <stdint.h>
 #include "buff/buff.h"
@@ -12,24 +11,25 @@
 using namespace std;
 using namespace std::chrono;
 
-class TcpStream
+class UdpSocket
 {
 
 public:
     int fd;
-    static Result<TcpStream,int> Connect(std::string domain);
-    static Result<TcpStream,int> Connect (const char* host, size_t port);
-    static Result<TcpStream,int> Connect_timeout(SocketAddr &addr, std::chrono::duration<int, std::ratio<1,2>> timeout);
+    static Result<UdpSocket,int> Bind(std::string domain);
+    static Result<UdpSocket,int> Connect(std::string domain);
+    static Result<UdpSocket,int> Connect (const char* host, size_t port);
+    static Result<UdpSocket,int> Connect_timeout(SocketAddr &addr, std::chrono::duration<int, std::ratio<1,2>> timeout);
 
-    TcpStream(int fd);
-    size_t write(Slice<uint8_t> &slice);
-    size_t read(Slice<uint8_t> &slice);
+    UdpSocket(int fd);
+    size_t write(Slice<uint8_t> slice);
+    size_t read(Slice<uint8_t> slice);
     /* Returns the socket address of the remote peer of this TCP connection. */
     Result<SocketAddr,int> peer_addr();
     Result<SocketAddr,int> local_addr();
 
     //Result<void, string> shutdown(Shutdown how);
-    Result<TcpStream,int> try_clone();
+    Result<UdpSocket,int> try_clone();
    // Result<void, string> set_read_timeout(struct timeval *tv);
     //Result<void, string> set_read_timeout(Option<duration> dur);
     //Result<void, string> set_write_timeout(struct timeval *tv);
@@ -48,16 +48,4 @@ public:
     Result<void,int> set_nonblocking(bool nonblocking);
 };
 
-
-
-class TcpListener : TcpStream
-{
-
-public:
-    Result<TcpStream,int> Accept();
-
-    Result<TcpStream,int> AccepT_timeout(uint32_t msecond);
-
-    static TcpStream bind(std::string addr);
-
-};
+#endif
