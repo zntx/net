@@ -10,7 +10,7 @@ set( CMAKE_BUILD_TYPE "Debug" )
 
 #INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/3drpart/)
 
-Depend(buff git "https://github.com/zntx/buff.git" )
+#Depend(buff git "https://github.com/zntx/buff.git" )
 
 aux_source_directory(src SOURCES)
 
@@ -20,7 +20,7 @@ add_library( ${PROJECT_NAME} STATIC ${SOURCES} )
 #add_library( ${CMAKE_PROJECT_NAME} SHARED ${SOURCES} )
 
 # 生成可执行文件useHello
-#add_executable( useHello useHello.cpp )
+add_executable( testnet main.cpp )
 
 # 将可执行程序链接到上库文件
-#target_link_libraries( useHello hello_shared )
+target_link_libraries( testnet net )

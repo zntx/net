@@ -4,8 +4,21 @@
 #include "Option.h"
 #include "Result.h"
 #include "IpAddr.h"
+#if defined(WIN32) || defined(_WIN32) || defined(_WIN32_) || defined(WIN64) || defined(_WIN64) || defined(_WIN64_)
+//Windows平台
+
+#elif defined(ANDROID) || defined(_ANDROID_)
+//Android平台
+#elif defined(__linux__)
+//Linux平台
 #include <netinet/tcp.h>
 #include <netinet/in.h>
+#elif defined(__APPLE__) || defined(TARGET_OS_IPHONE) || defined(TARGET_IPHONE_SIMULATOR) || defined(TARGET_OS_MAC)
+//iOS、Mac平台
+#else
+//#define PLATFORM_UNKNOWN 1
+#endif
+
 
 
 class AddrParseError{
@@ -17,14 +30,14 @@ public:
     struct sockaddr_in sa;
     static Result<SocketAddrV4,int> create(std::string ips, uint16_t port);
     static Result<SocketAddrV4,int> parse_ascii(Slice<uint8_t> slice);
-    //这是一个仅限夜间使用的实验性 API。( #101035addr_parse_ascii)
-    //从字节片中解析 IPv4 套接字地址。
-    SocketAddrV4();
+    //这是一�?仅限夜间使用的实验�? API�?( #101035addr_parse_ascii)
+    //从字节片�?解析 IPv4 套接字地址�?
     SocketAddrV4(struct sockaddr_in s);
+    SocketAddrV4(struct sockaddr_in *s);
     SocketAddrV4(Ipv4Addr ip,  uint16_t port);
     SocketAddrV4(const SocketAddrV4 & addr);
     SocketAddrV4(SocketAddrV4 && addr);
-    SocketAddrV4& operator =(const SocketAddrV4& addr);//赋值运算符
+    SocketAddrV4& operator =(const SocketAddrV4& addr);//赋值运算�??
 
 
     Ipv4Addr ip();
@@ -41,24 +54,22 @@ public:
     struct sockaddr_in6 sa;  /**< IPV6 地址*/
 
     static  Result<SocketAddrV6,int> create(std::string ips, uint16_t port);
-
+    SocketAddrV6(struct sockaddr_in6 s);
+    SocketAddrV6(struct sockaddr_in6 *s);
     SocketAddrV6(Ipv6Addr ip,  uint16_t port);
     std::string to_string();
 
 };
 
-
-union SocketAddrIn {
-    struct sockaddr_in sin4;
-    struct sockaddr_in6 sin6;
-};
-
 class SocketAddr{
-
 public:
     bool is_v4;
-    SocketAddrIn sa;
-public:
+
+    union {
+        struct sockaddr_in sin4;
+        struct sockaddr_in6 sin6;
+    };
+
     static  Result<SocketAddr,int> create(std::string ips, uint16_t port);
 
     SocketAddr(SocketAddrV4 v4);

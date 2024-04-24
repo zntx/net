@@ -7,8 +7,23 @@ https://doc.rust-lang.org/std/net/enum.IpAddr.html
 #ifndef IPADDR_H_H
 #define IPADDR_H_H
 #include <stdint.h>
+#if defined(WIN32) || defined(_WIN32) || defined(_WIN32_) || defined(WIN64) || defined(_WIN64) || defined(_WIN64_)
+//Windowsƽ̨
+#include <winsock2.h>
+#include <in6addr.h>
+#include <ws2tcpip.h>
+#elif defined(ANDROID) || defined(_ANDROID_)
+//Androidƽ̨
+#elif defined(__linux__)
+//Linuxƽ̨
 #include <arpa/inet.h>
-#include "buff/buff.h"
+#elif defined(__APPLE__) || defined(TARGET_OS_IPHONE) || defined(TARGET_IPHONE_SIMULATOR) || defined(TARGET_OS_MAC)
+//iOS��Macƽ̨
+#else
+//#define PLATFORM_UNKNOWN 1
+#endif
+
+#include "Slice.h"
 #include "Result.h"
 #include "Option.h"
 
@@ -47,16 +62,14 @@ public:
     static Result<Ipv4Addr, int> create(const char *ips);
 
     Ipv4Addr(uint8_t a, uint8_t b, uint8_t c, uint8_t d);
-
-    Ipv4Addr(uint32_t d);
-
+    //Ipv4Addr(uint32_t d);
     Ipv4Addr(const uint8_t (&array)[4]);
-
     Ipv4Addr(struct in_addr _sin);
-
+    Ipv4Addr(struct in_addr *_sin);
+    Ipv4Addr( const Ipv4Addr &other);
+    Ipv4Addr(Ipv4Addr &&other);
+    Ipv4Addr& operator=(const Ipv4Addr& other);
     bool operator==(const Ipv4Addr &other);
-
-    // uint32_t operator=()
 
     /// Returns the four eight-bit integers that make up this address.
     ///
@@ -72,10 +85,6 @@ public:
     // #[stable(feature = "rust1", since = "1.0.0")]
     // #[must_use]
     // #[inline]
-    //  uint8_t [4] octets()
-    //  {
-    //      return this->octets;
-    //  }
 
     uint8_t (&octets())[4];
 
@@ -1203,6 +1212,9 @@ public:
     IpAddr(Ipv4Addr ipv4);
 
     IpAddr(Ipv6Addr ipv6);
+
+    IpAddr(const IpAddr &ipv);
+    IpAddr(IpAddr&& ip);
 
     IpAddr(const uint8_t (&arr)[4]);
 

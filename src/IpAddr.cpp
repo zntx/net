@@ -3,6 +3,19 @@
 #include <string.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#include <iostream>
+#include "zstdint.h"
+
+#if defined(WIN32) || defined(_WIN32) || defined(_WIN32_) || defined(WIN64) || defined(_WIN64) || defined(_WIN64_)
+//Windows平台
+#include <winsock2.h>
+#include <in6addr.h>
+#include <ws2tcpip.h>
+#include <Ws2tcpip.h >
+#elif defined(ANDROID) || defined(_ANDROID_)
+//Android平台
+#elif defined(__linux__)
+//Linux平台
 #include <sys/shm.h>
 #include <sys/types.h>
 #include <sys/ioctl.h>
@@ -14,11 +27,17 @@
 #include <net/route.h>
 #include <linux/sockios.h>
 #include <netdb.h>
-#include <iostream>
+#elif defined(__APPLE__) || defined(TARGET_OS_IPHONE) || defined(TARGET_IPHONE_SIMULATOR) || defined(TARGET_OS_MAC)
+//iOS、Mac平台
+#else
+#define PLATFORM_UNKNOWN 1
+#endif
 #include "IpAddr.h"
-#include "zstdint.h"
 
-/* IP地址合法性判断宏定义,只针对IPv4地址 */
+
+
+
+/* IP地址合法性判�?宏定�?,�?针�?�IPv4地址 */
 #define NET_SWAP_32(x)						((((x)&0xff000000) >> 24)\
 												| (((x)&0x00ff0000) >> 8)\
 												| (((x)&0x0000ff00) << 8)\
@@ -29,10 +48,10 @@
 #define IN_IS_ADDR_RESERVE_MULTICAST(ip)	((((ip)&0xff) == 0xE0)\
 												&& ((((ip)&0x00ff0000) >> 16) == 0)\
 												&& ((((ip)&0x0000ff00) >> 8) == 0)\
-												&& ((((ip)&0xff000000) >> 24) <= 0x12))//保留的多播地址，224.0.0.0~224.0.0.18
+												&& ((((ip)&0xff000000) >> 24) <= 0x12))//保留的�?�播地址�?224.0.0.0~224.0.0.18
 #define IN_IS_ADDR_BROADCAST(ip, mask)		(((ip)&(~(mask))) == (~(mask)))	//广播地址，即主机号全1
-#define IN_IS_ADDR_NETADDR(ip, mask)		(!((ip)&(~(mask))))	//网络地址，即主机号全零
-#define IN_IS_ADDR_UNSPECIFIED(ip)			(!(ip))	//地址为全零
+#define IN_IS_ADDR_NETADDR(ip, mask)		(!((ip)&(~(mask))))	//网络地址，即主机号全�?
+#define IN_IS_ADDR_UNSPECIFIED(ip)			(!(ip))	//地址为全�?
 
 
 Result<Ipv4Addr, int> Ipv4Addr::create(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
@@ -46,8 +65,8 @@ Result<Ipv4Addr, int> Ipv4Addr::create(uint8_t a, uint8_t b, uint8_t c, uint8_t 
 
 	// struct in_addr ip_a;
 	// ip_a.s_addr = htonl(s_addr);
-    Ipv4Addr ip(a, b, c, d);
-    return Ok(ip);
+    //Ipv4Addr ip(a, b, c, d);
+    return Ok(Ipv4Addr(a, b, c, d));
 }
 
 Result<Ipv4Addr, int> Ipv4Addr::create(std::string ips)
@@ -63,9 +82,8 @@ Result<Ipv4Addr, int> Ipv4Addr::create(const char *ips)
     {
         return Err(errno);
     }
-	
-    Ipv4Addr v4(ip_a);
-    return Ok(v4);
+
+    return Ok(Ipv4Addr(ip_a));
 }
 
 Ipv4Addr::Ipv4Addr(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
@@ -76,13 +94,13 @@ Ipv4Addr::Ipv4Addr(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
     _octets[3] = d;
 }
 
-Ipv4Addr::Ipv4Addr(uint32_t d)
-{
-    _octets[0] = (d & 0xff000000) >> 24;
-    _octets[1] = (d & 0x00ff0000) >> 16;
-    _octets[2] = (d & 0x0000ff00) >> 8;
-    _octets[3] = (d & 0x000000ff);
-}
+// Ipv4Addr::Ipv4Addr(uint32_t d)
+// {
+//     _octets[0] = (d & 0xff000000) >> 24;
+//     _octets[1] = (d & 0x00ff0000) >> 16;
+//     _octets[2] = (d & 0x0000ff00) >> 8;
+//     _octets[3] = (d & 0x000000ff);
+// }
 
 Ipv4Addr::Ipv4Addr(const uint8_t (&array)[4])
 {
@@ -97,10 +115,30 @@ Ipv4Addr::Ipv4Addr(struct in_addr _sin)
     sin.s_addr = _sin.s_addr;
 }
 
+Ipv4Addr::Ipv4Addr(struct in_addr *_sin)
+{
+    sin.s_addr = _sin->s_addr;
+}
+
+Ipv4Addr::Ipv4Addr( const Ipv4Addr &other)
+{
+    this->sin.s_addr = other.sin.s_addr;
+}
+
+Ipv4Addr::Ipv4Addr(Ipv4Addr &&other)
+{
+    this->sin.s_addr = other.sin.s_addr;
+}
+
+Ipv4Addr& Ipv4Addr::operator=(const Ipv4Addr& other)
+{
+    this->sin.s_addr = other.sin.s_addr;
+    return *this;
+}
+
+
 bool Ipv4Addr::operator==(const Ipv4Addr &other)
 {
-    
-
     return Arrays_Compare(this->_octets, other._octets);;
 }
 
@@ -321,14 +359,14 @@ Result<Ipv6Addr, int> Ipv6Addr::create(const char *ips)
         return Err(errno);
     }
 	
-	Ipv6Addr sin6(_sin);
-	return Ok(sin6);
+	return Ok(Ipv6Addr(_sin));
 }
 
 Ipv6Addr::Ipv6Addr(struct in6_addr _sin)
 {
     sin = _sin;
 }
+
 
 Ipv6Addr::Ipv6Addr(uint16_t a, uint16_t b, uint16_t c, uint16_t d, uint16_t e, uint16_t f, uint16_t g, uint16_t h)
 {
@@ -763,8 +801,8 @@ Result<IpAddr, int> IpAddr::create(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
     {
         Ipv4Addr ips = ipv4.unwrap();
 
-        IpAddr ip_addr(ips);
-        return Ok( ip_addr );
+        
+        return Ok( IpAddr(ips) );
     }
 
     int error = ipv4.unwrapErr();
@@ -851,6 +889,33 @@ IpAddr::IpAddr(const uint16_t (&arr)[8])
 {
     this->is_v4 = false;
     this->sin6 = Ipv6Addr(arr);
+}
+
+IpAddr::IpAddr(const IpAddr &other)
+{
+    this->is_v4 = other.is_v4;
+
+    if (this->is_v4)
+    {
+        this->sin4 = other.sin4;
+    }
+    else
+    {
+        this->sin6 = other.sin6;
+    }
+}
+IpAddr::IpAddr(IpAddr&& other)
+{
+    this->is_v4 = other.is_v4;
+
+    if (this->is_v4)
+    {
+        this->sin4 = other.sin4;
+    }
+    else
+    {
+        this->sin6 = other.sin6;
+    }
 }
 
 bool IpAddr::operator==(const IpAddr &other)

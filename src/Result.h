@@ -19,7 +19,7 @@ namespace types
     template <typename T>
     struct Ok
     {
-        Ok(const T &val) : val(val) {}
+        // Ok(const T &val) : val(val) {}
         Ok(T &&val) : val(std::move(val)) {}
 
         T val;
@@ -637,10 +637,9 @@ namespace details
 
     template <typename T, typename E, typename Func,
               typename Ret =
-                  Result<
-                      typename details::ResultOkType<
-                          typename details::result_of<Func>::type>::type,
-                      E>>
+                  Result< typename details::ResultOkType<
+                          typename details::result_of<Func>::type>::type,E>
+                        >
     Ret map(const Result<T, E> &result, Func func)
     {
         return ok::Map<Func>::map(result, func);
@@ -700,7 +699,7 @@ namespace details
 
         void construct(types::Ok<T> ok)
         {
-            new (&storage_) T(ok.val);
+            new (&storage_) T(std::move(ok.val));
             initialized_ = true;
         }
         void construct(types::Err<E> err)
@@ -728,6 +727,12 @@ namespace details
         U &get()
         {
             return *reinterpret_cast<U *>(&storage_);
+        }
+
+        template <typename U>
+        U take()
+        {
+            return std::move(*reinterpret_cast<U *>(&storage_));
         }
 
         void destroy(ok_tag)
@@ -799,6 +804,12 @@ namespace details
             return *reinterpret_cast<U *>(&storage_);
         }
 
+        template <typename U>
+        U take()
+        {
+            return *reinterpret_cast<U *>(&storage_);
+        }
+
         type storage_;
         bool initialized_;
     };
@@ -855,7 +866,7 @@ namespace details
 
 } // namespace details
 
-namespace concept
+namespace concept 
 {
 
     template <typename T, typename = void>
@@ -882,13 +893,14 @@ struct Result
     typedef details::Storage<T, E> storage_type;
 
     Result(types::Ok<T> ok)
-        : ok_(true)
+        : ok_(true),err_(false)
     {
+        printf("call in result");
         storage_.construct(std::move(ok));
     }
 
     Result(types::Err<E> err)
-        : ok_(false)
+        : ok_(false),err_(true)
     {
         storage_.construct(std::move(err));
     }
@@ -899,33 +911,37 @@ struct Result
         {
             details::Constructor<T, E>::move(std::move(other.storage_), storage_, details::ok_tag());
             ok_ = true;
+            err_ = false;
+            other.ok_ = false;
         }
         else
         {
             details::Constructor<T, E>::move(std::move(other.storage_), storage_, details::err_tag());
             ok_ = false;
+            err_ = true;
+            other.err_ = false;
         }
     }
 
-    Result(const Result &other)
-    {
-        if (other.isOk())
-        {
-            details::Constructor<T, E>::copy(other.storage_, storage_, details::ok_tag());
-            ok_ = true;
-        }
-        else
-        {
-            details::Constructor<T, E>::copy(other.storage_, storage_, details::err_tag());
-            ok_ = false;
-        }
-    }
+    // Result(const Result &other)
+    // {
+    //     if (other.isOk())
+    //     {
+    //         details::Constructor<T, E>::copy(other.storage_, storage_, details::ok_tag());
+    //         ok_ = true;
+    //     }
+    //     else
+    //     {
+    //         details::Constructor<T, E>::copy(other.storage_, storage_, details::err_tag());
+    //         ok_ = false;
+    //     }
+    // }
 
     ~Result()
     {
         if (ok_)
             storage_.destroy(details::ok_tag());
-        else
+        if (err_)
             storage_.destroy(details::err_tag());
     }
 
@@ -936,7 +952,7 @@ struct Result
 
     bool isErr() const
     {
-        return !ok_;
+        return err_;
     }
 
     T expect(const char *str) const
@@ -984,9 +1000,7 @@ struct Result
 
     template <typename Func,
               typename Ret =
-                  Result<T,
-                         typename details::ResultErrType<
-                             typename details::result_of<Func>::type>::type>>
+                  Result<T, typename details::ResultErrType<typename details::result_of<Func>::type>::type>>
     Ret orElse(Func func) const
     {
         return details::orElse(*this, func);
@@ -1003,37 +1017,36 @@ struct Result
     }
 
     template <typename U = T>
-    typename std::enable_if<
-        !std::is_same<U, void>::value,
-        U>::type
+    typename std::enable_if<!std::is_same<U, void>::value, U>::type
     unwrapOr(const U &defaultValue) const
     {
         if (isOk())
         {
-            return storage().template get<U>();
+            ok_ = false;
+            return storage().template take<U>();
         }
         return defaultValue;
     }
 
     template <typename U = T>
-    typename std::enable_if<
-        !std::is_same<U, void>::value,
-        U>::type
-    unwrap() const
+    typename std::enable_if< !std::is_same<U, void>::value, U>::type
+    unwrap()
     {
         if (isOk())
         {
-            return storage().template get<U>();
+            ok_ = false;
+            return storage().template take<U>();
         }
 
         std::fprintf(stderr, "%s:%d Attempting to unwrap an error Result\n", __FILE__, __LINE__);
         std::terminate();
     }
 
-    E unwrapErr() const
+    E unwrapErr()
     {
         if (isErr())
         {
+            err_ = false;
             return storage().template get<E>();
         }
 
@@ -1046,6 +1059,7 @@ private:
     T expect_impl(std::false_type) const { return storage_.template get<T>(); }
 
     bool ok_;
+    bool err_;
     storage_type storage_;
 };
 
