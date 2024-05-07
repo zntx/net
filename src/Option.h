@@ -18,7 +18,7 @@ namespace types
         Some(const T &val) : val_(val) {}
         Some(T &&val) : val_(std::move(val)) {}
 
-    private:
+    //private:
         T val_;
     };
 

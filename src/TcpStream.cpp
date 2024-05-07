@@ -3,32 +3,9 @@
 #include <string.h>
 #include <stdlib.h>
 #include <fcntl.h>
-#if defined(WIN32) || defined(_WIN32) || defined(_WIN32_) || defined(WIN64) || defined(_WIN64) || defined(_WIN64_)
-// Windows??
-
-#elif defined(ANDROID) || defined(_ANDROID_)
-// Android??
-#elif defined(__linux__)
-// Linux??
-#include <sys/shm.h>
-#include <sys/types.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <netinet/tcp.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <net/if.h>
-#include <net/route.h>
-#include <linux/sockios.h>
-#include <netdb.h>
-#include <arpa/inet.h>
-#elif defined(__APPLE__) || defined(TARGET_OS_IPHONE) || defined(TARGET_IPHONE_SIMULATOR) || defined(TARGET_OS_MAC)
-// iOS??Mac??
-#else
-//#define PLATFORM_UNKNOWN 1
-#endif
 
 #include <iostream>
+#include "socket_include.h"
 #include "TcpStream.h"
 
 Result<TcpStream, int> TcpStream::Connect(std::string domain)
@@ -182,8 +159,18 @@ Result<TcpStream, int> Connect_timeout(SocketAddr &addr, std::chrono::duration<i
     //     continue;
     // }
 
-    int block_or_not = 1; // 设置非阻塞
-    if (ioctl(sockfd, FIONBIO, &block_or_not) != 0)
+#ifdef UNIX
+    int block_or_not = 1; // 设置非阻
+    if (ioctlsocket(sockfd, FIONBIO, (char *)&on) < 0)
+#endif
+#ifdef __WINDOWS__
+    unsigned long on_windows=1;
+    if (ioctlsocket(sockfd, FIONBIO, &on_windows) < 0)
+#endif
+#ifdef VOS
+        int off=0;
+    if (ioctlsocket(sockfd, FIONBIO, (char *)&off) <0)
+#endif
     {
         // NETBASE_ERR("ioctl socket failed\n");
         return Err(errno);
@@ -213,7 +200,7 @@ Result<TcpStream, int> Connect_timeout(SocketAddr &addr, std::chrono::duration<i
 
             if (select(sockfd + 1, NULL, &set, NULL, &mytm) > 0)
             {
-                int err = 0; // error??
+                char err = 0; // error??
                 int len = sizeof(int);
                 // 清除错误
                 (void)getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &err, (socklen_t *)&len);
@@ -233,8 +220,18 @@ Result<TcpStream, int> Connect_timeout(SocketAddr &addr, std::chrono::duration<i
         }
     }
 
+#ifdef UNIX
     block_or_not = 0; // 设置阻塞
-    if (ioctl(sockfd, FIONBIO, &block_or_not) != 0)
+    if (ioctlsocket(sockfd, FIONBIO, (char *)&on) < 0)
+#endif
+#ifdef __WINDOWS__
+    on_windows=1;
+    if (ioctlsocket(sockfd, FIONBIO, &on_windows) < 0)
+#endif
+#ifdef VOS
+        off=0;
+    if (ioctlsocket(sockfd, FIONBIO, (char *)&off) <0)
+#endif
     {
         // NETBASE_ERR("ioctl socket failed\n");
         return Err(errno);
@@ -278,19 +275,19 @@ TcpStream &TcpStream::operator=(TcpStream &&other)
 
 size_t TcpStream::read(Slice<uint8_t> &slice)
 {
-    return recv(this->fd, slice.addr, slice.len, 0);
+    return recv(this->fd, (char*)slice.addr, slice.len, 0);
 }
 
 size_t TcpStream::write(Slice<uint8_t> &slice)
 {
-    return send(this->fd, slice.addr, slice.len, 0);
+    return send(this->fd,  (char*)slice.addr, slice.len, 0);
 }
 
 Result<SocketAddr, int> TcpStream::peer_addr()
 {
     struct sockaddr_in peerAddr;
 
-    uint32_t peerLen = sizeof(peerAddr);
+    int32_t peerLen = sizeof(peerAddr);
     if (getpeername(this->fd, (struct sockaddr *)&peerAddr, &peerLen) == -1)
     {
         printf("getpeername error\n");
@@ -305,7 +302,7 @@ Result<SocketAddr, int> TcpStream::peer_addr()
 Result<SocketAddr, int> TcpStream::local_addr()
 {
     struct sockaddr_in connectedAddr;
-    uint32_t len = sizeof(connectedAddr);
+    int32_t len = sizeof(connectedAddr);
     if (getsockname(this->fd, (struct sockaddr *)&connectedAddr, &len) == -1)
     {
         printf("getsockname error\n");
@@ -363,7 +360,7 @@ Result<Option<struct timeval>, int> TcpStream::read_timeout()
     tv.tv_usec = 0;
     socklen_t optlen = sizeof(struct timeval);
     // getsockopt(this->fd, SOL_SOCKET,SO_RCVTIMEO, &tv, &optlen);
-    setsockopt(this->fd, SOL_SOCKET, SO_RCVTIMEO, &tv, optlen);
+    setsockopt(this->fd, SOL_SOCKET, SO_RCVTIMEO, (char*)&tv, optlen);
 
     Option<struct timeval> ret = Some(tv);
     return Ok(std::move(ret));
@@ -375,7 +372,7 @@ Result<Option<struct timeval>, int> TcpStream::write_timeout()
     tv.tv_usec = 0;
     socklen_t optlen = sizeof(struct timeval);
     // getsockopt(this->fd, SOL_SOCKET,SO_RCVTIMEO, &tv, &optlen);
-    setsockopt(this->fd, SOL_SOCKET, SO_SNDTIMEO, &tv, optlen);
+    setsockopt(this->fd, SOL_SOCKET, SO_SNDTIMEO, (char*)&tv, optlen);
 
     Option<struct timeval> ret = Some(tv);
     return Ok(std::move(ret));
@@ -402,7 +399,7 @@ Result<Option<struct timeval>, int> TcpStream::write_timeout()
 
 Result<bool, int> TcpStream::nodelay()
 {
-    int nodelay = 0;
+    char nodelay = 0;
     int rc = setsockopt(this->fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(int));
 
     if (nodelay)
@@ -473,7 +470,7 @@ Result<TcpListener, int> TcpListener::bin(const char *host_name, uint16_t port)
                 break;
             }
 
-            int tmp = 1;
+            char tmp = 1;
             int ret = setsockopt(stream, SOL_SOCKET, SO_REUSEADDR, &tmp, sizeof(tmp));
             if (ret < 0)
             {

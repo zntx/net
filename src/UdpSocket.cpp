@@ -22,7 +22,7 @@
 #include <linux/sockios.h>
 #include <netdb.h>
 #elif defined(__APPLE__) || defined(TARGET_OS_IPHONE) || defined(TARGET_IPHONE_SIMULATOR) || defined(TARGET_OS_MAC)
-//iOS��Macƽ̨
+//iOS��Macƽ̨
 #else
 //#define PLATFORM_UNKNOWN 1
 #endif
@@ -72,14 +72,14 @@ Result<UdpSocket,int> UdpSocket::connect (const char* host, size_t port)
     server_sockaddr.sin_port = htons(port);
     server_sockaddr.sin_addr.s_addr = inet_addr(host);
     
-    ///bind，成功返�?0，出错返�?-1
+    ///bind，成功返�?0，出错返�?-1
     if(bind( strem.fd, (struct sockaddr *)&server_sockaddr, sizeof(server_sockaddr)) ==-1)
     {
         perror("bind");
         return Err(errno);
     }
     
-    ///listen，成功返�?0，出错返�?-1
+    ///listen，成功返�?0，出错返�?-1
     if(listen(strem.fd, 24) == -1)
     {
         perror("listen");
@@ -177,8 +177,21 @@ Result<UdpSocket, int> Connect_timeout(SocketAddr &addr, std::chrono::duration<i
     // }
 
 
-    int block_or_not = 1; // 设置非阻�?
-    if (ioctl(sockfd, FIONBIO, &block_or_not) != 0)
+#ifdef UNIX
+    int block_or_not = 1; // 设置非阻塞
+    if (ioctlsocket(sockfd, FIONBIO, (char *)&on) < 0)
+#endif
+
+#ifdef WIN32
+    unsigned long on_windows=1;
+    if (ioctlsocket(sockfd, FIONBIO, &on_windows) < 0)
+#endif
+
+
+#ifdef VOS
+        int off=0;
+    if (ioctlsocket(sockfd, FIONBIO, (char *)&off) <0)
+#endif
     {
         // NETBASE_ERR("ioctl socket failed\n");
         return Err(errno);
@@ -208,9 +221,9 @@ Result<UdpSocket, int> Connect_timeout(SocketAddr &addr, std::chrono::duration<i
 
             if (select(sockfd + 1, NULL, &set, NULL, &mytm) > 0)
             {
-                int err = 0; // error�?
+                char err = 0; // error�?
                 int len = sizeof(int);
-                // 清除错�??
+                // 清除错�??
                 (void)getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &err, (socklen_t *)&len);
                 if (0 == err)
                 {
@@ -228,8 +241,20 @@ Result<UdpSocket, int> Connect_timeout(SocketAddr &addr, std::chrono::duration<i
         }
     }
 
-    block_or_not = 0; // 设置阻�??
-    if (ioctl(sockfd, FIONBIO, &block_or_not) != 0)
+#ifdef UNIX
+    block_or_not = 0; // 设置非阻塞
+    if (ioctlsocket(sockfd, FIONBIO, (char *)&on) < 0)
+#endif
+
+#ifdef WIN32
+    on_windows=0;
+    if (ioctlsocket(sockfd, FIONBIO, &on_windows) < 0)
+#endif
+
+#ifdef VOS
+        int off=1;
+    if (ioctlsocket(sockfd, FIONBIO, (char *)&off) <0)
+#endif
     {
         // NETBASE_ERR("ioctl socket failed\n");
         return Err(errno);
@@ -245,19 +270,19 @@ UdpSocket::UdpSocket(int fd)
 
 size_t UdpSocket::read(Slice<uint8_t> slice)
 {
-    return recv(this->fd, slice.addr, slice.len, 0);
+    return recv(this->fd, (char*)slice.addr, slice.len, 0);
 }
 
 size_t UdpSocket::write(Slice<uint8_t> slice)
 {
-    return send(this->fd, slice.addr, slice.len, 0);
+    return send(this->fd, (char*)slice.addr, slice.len, 0);
 }
 
 Result<SocketAddr, int> UdpSocket::peer_addr()
 {
     struct sockaddr_in peerAddr;
 
-    uint32_t peerLen = sizeof(peerAddr);
+    int32_t peerLen = sizeof(peerAddr);
     if (getpeername(this->fd, (struct sockaddr *)&peerAddr, &peerLen) == -1)
     {
         printf("getpeername error\n");
@@ -271,7 +296,7 @@ Result<SocketAddr, int> UdpSocket::peer_addr()
 Result<SocketAddr, int> UdpSocket::local_addr()
 {
     struct sockaddr_in connectedAddr;
-    uint32_t len = sizeof(connectedAddr);
+    int32_t len = sizeof(connectedAddr);
     if (getsockname(this->fd, (struct sockaddr *)&connectedAddr, &len) == -1)
     {
         printf("getsockname error\n");
@@ -329,7 +354,7 @@ Result<Option<struct timeval>, int> UdpSocket::read_timeout()
     tv.tv_usec = 0;
     socklen_t optlen = sizeof(struct timeval);
     // getsockopt(this->fd, SOL_SOCKET,SO_RCVTIMEO, &tv, &optlen);
-    setsockopt(this->fd, SOL_SOCKET, SO_RCVTIMEO, &tv, optlen);
+    setsockopt(this->fd, SOL_SOCKET, SO_RCVTIMEO, (char*)&tv, optlen);
 
     Option<struct timeval> ret = Some(tv);
     return Ok(std::move(ret));
@@ -341,7 +366,7 @@ Result<Option<struct timeval>, int> UdpSocket::write_timeout()
     tv.tv_usec = 0;
     socklen_t optlen = sizeof(struct timeval);
     // getsockopt(this->fd, SOL_SOCKET,SO_RCVTIMEO, &tv, &optlen);
-    setsockopt(this->fd, SOL_SOCKET, SO_SNDTIMEO, &tv, optlen);
+    setsockopt(this->fd, SOL_SOCKET, SO_SNDTIMEO, (char*)&tv, optlen);
 
     Option<struct timeval> ret = Some(tv);
     return Ok(std::move(ret));
@@ -368,7 +393,7 @@ Result<Option<struct timeval>, int> UdpSocket::write_timeout()
 
 Result<bool, int> UdpSocket::nodelay()
 {
-    int nodelay = 0;
+    char nodelay = 0;
     int rc = setsockopt(this->fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(int));
 
     if (nodelay)
@@ -379,7 +404,7 @@ Result<bool, int> UdpSocket::nodelay()
 
 // Result<void, string> UdpSocket::set_nonblocking(bool nonblocking)
 // {
-//     int block_or_not = 1; // 设置非阻�?
+//     int block_or_not = 1; // 设置非阻�?
 //     if(nonblocking)
 //         block_or_not = 1;
 //     else

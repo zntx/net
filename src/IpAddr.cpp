@@ -646,7 +646,7 @@ IpAddr Ipv6Addr::to_canonical()
 
 uint8_t (&Ipv6Addr::octets())[16]
 {
-    this->addr8;
+    return this->addr8;
 }
 //};
 

@@ -19,8 +19,13 @@ add_library( ${PROJECT_NAME} STATIC ${SOURCES} )
 # 生成一个共享库，会生成一个libhello_shared.so文件
 #add_library( ${CMAKE_PROJECT_NAME} SHARED ${SOURCES} )
 
+aux_source_directory(demo D_SOURCES)
+
+include_directories(${CMAKE_SOURCE_DIR})
+
 # 生成可执行文件useHello
-add_executable( testnet main.cpp )
+add_executable( testnet ${D_SOURCES} )
 
 # 将可执行程序链接到上库文件
 target_link_libraries( testnet net )
+target_link_libraries( testnet ws2_32 )

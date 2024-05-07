@@ -68,6 +68,7 @@ SocketAddrV4::SocketAddrV4(SocketAddrV4 &&addr)
 SocketAddrV4 &SocketAddrV4::operator=(const SocketAddrV4 &addr) // 赋值运算�??
 {
     memcpy(&sa, &addr.sa, sizeof(struct sockaddr_in));
+    return *this;
 }
 
 Ipv4Addr SocketAddrV4::ip()
