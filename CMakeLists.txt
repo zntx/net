@@ -28,4 +28,6 @@ add_executable( testnet ${D_SOURCES} )
 
 # 将可执行程序链接到上库文件
 target_link_libraries( testnet net )
-target_link_libraries( testnet ws2_32 )
+if(WIN32)
+    target_link_libraries( testnet ws2_32 )
+endif()

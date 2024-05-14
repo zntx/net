@@ -20,6 +20,8 @@ int test_client(int agrc, char *agrv[])
 
     printf("read size %lu\n", len);
     printf("read  %s\n", slice.addr);
+
+    return 0;
 }
 
 int test_server(int agrc, char *agrv[])
@@ -32,7 +34,7 @@ int test_server(int agrc, char *agrv[])
     }
     TcpListener listener = listener_pack.unwrap();
 
-    printf(" listener %d\n", listener.fd);
+    printf(" listener %d\n", listener.GetSocket());
 
     Result<TcpStream, int> stream_pack = listener.Accept();
     if (stream_pack.isErr())

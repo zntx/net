@@ -7,15 +7,14 @@
 #include "Slice.h"
 #include "Result.h"
 #include "SocketAddr.h"
+#include "Socket.h"
 
 using namespace std;
 using namespace std::chrono;
 
-class UdpSocket
+class UdpSocket : public Socket
 {
-
 public:
-    int fd;
     static Result<UdpSocket,int> Bind(std::string domain);
     static Result<UdpSocket,int> Connect(std::string domain);
     static Result<UdpSocket,int> Connect (const char* host, size_t port);

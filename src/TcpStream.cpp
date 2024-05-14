@@ -91,6 +91,7 @@ Result<TcpStream, int> TcpStream::Connect(const char *host, size_t port)
     if (strlen(host_ip) == 0)
         strncpy(host_ip, host, strlen(host));
 
+    printf("%s:%d %s()", __FILE__, __LINE__, __func__);
     printf("host addr %s\n", host);
     // 判断IP 是V4还是V6
     Result<IpAddr, int> r_addr = IpAddr::create(host_ip);
@@ -107,7 +108,8 @@ Result<TcpStream, int> TcpStream::Connect(const char *host, size_t port)
         strem = socket(AF_INET, SOCK_STREAM, 0);
         if (strem < 0)
         {
-            perror("setsockopet error\n");
+            printf("%s:%d %s()", __FILE__, __LINE__, __func__);
+            perror("socket error\n");
             return Err(errno);
         }
 

@@ -9,15 +9,15 @@
 #include "Slice.h"
 #include "Result.h"
 #include "SocketAddr.h"
+#include "Socket.h"
 
 using namespace std;
 using namespace std::chrono;
 
-class TcpStream
+class TcpStream : public Socket
 {
 
 public:
-    int fd;
     static Result<TcpStream, int> Connect(std::string domain);
     static Result<TcpStream, int> Connect(const char *host, size_t port);
     static Result<TcpStream, int> Connect_timeout(SocketAddr &addr, std::chrono::duration<int, std::ratio<1, 2>> timeout);
