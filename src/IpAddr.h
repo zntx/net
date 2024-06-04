@@ -1195,6 +1195,8 @@ public:
 
     std::string to_string();
 
+    IpAddr();
+
     IpAddr(Ipv4Addr ipv4);
 
     IpAddr(Ipv6Addr ipv6);

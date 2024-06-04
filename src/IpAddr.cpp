@@ -41,6 +41,11 @@ Result<Ipv4Addr> Ipv4Addr::create(std::string ips)
 
 Result<Ipv4Addr> Ipv4Addr::create(const char *ips)
 {
+
+
+
+
+
     struct in_addr ip_a;
     int ret = inet_pton(AF_INET, ips, &ip_a);
     if (ret <= 0)
@@ -813,6 +818,10 @@ Result<IpAddr> IpAddr::create(const char *host)
             return Err(std::string(StrError(Errno)));
         }
     }
+}
+
+IpAddr::IpAddr() :is_v4(true), sin4()
+{
 }
 
 IpAddr::IpAddr(Ipv4Addr ipv4)

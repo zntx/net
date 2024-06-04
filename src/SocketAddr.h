@@ -56,6 +56,7 @@ public:
 
     static  Result<SocketAddr,int> create(std::string ips, uint16_t port);
 
+    SocketAddr();
     SocketAddr(SocketAddrV4 v4);
     SocketAddr(SocketAddrV6 v6);
     SocketAddr(const SocketAddr & addr);

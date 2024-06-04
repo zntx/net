@@ -13,9 +13,6 @@ Result<SocketAddrV4> SocketAddrV4::parse_ascii(Slice<uint8_t> slice)
     return Err(std::string(StrError(Errno)));
 }
 
-
-
-
 SocketAddrV4::SocketAddrV4(Ipv4Addr ip, uint16_t port)
 {
     sa.sin_addr.s_addr = ip.sin.s_addr;
@@ -119,6 +116,13 @@ static Result<SocketAddr> create(std::string ips, uint16_t port)
     }
 
     return Ok(SocketAddr(SocketAddrV6(addr.sin6, port)));
+}
+
+SocketAddr::SocketAddr():is_v4(true)
+{
+    sin4.sin_family = AF_INET;
+    sin4.sin_addr.s_addr = 0;
+    sin4.sin_port = 0;
 }
 
 SocketAddr::SocketAddr(SocketAddrV4 v4)
