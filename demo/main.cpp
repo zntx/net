@@ -2,7 +2,7 @@
 #include "net.h"
 int test_client(int agrc, char *agrv[])
 {
-    Result<TcpStream, int> stream_pack = TcpStream::Connect("127.0.0.1:9005");
+    auto stream_pack = TcpStream::Connect("127.0.0.1:9005");
     if (stream_pack.isErr())
     {
         printf("connect fail %d \n", stream_pack.unwrapErr());
@@ -26,20 +26,20 @@ int test_client(int agrc, char *agrv[])
 
 int test_server(int agrc, char *agrv[])
 {
-    Result<TcpListener, int> listener_pack = TcpListener::bin("0.0.0.0", 9005);
+    auto listener_pack = TcpListener::bin("0.0.0.0", 9005);
     if (listener_pack.isErr())
     {
-        printf("connect fail %d \n", listener_pack.unwrapErr());
+        printf("connect fail %s \n", listener_pack.unwrapErr().c_str());
         return 1;
     }
     TcpListener listener = listener_pack.unwrap();
 
     printf(" listener %d\n", listener.GetSocket());
 
-    Result<TcpStream, int> stream_pack = listener.Accept();
+    auto stream_pack = listener.Accept();
     if (stream_pack.isErr())
     {
-        printf("Accept fail %d \n", stream_pack.unwrapErr());
+        printf("Accept fail %d \n", stream_pack.unwrapErr().c_str());
         return 1;
     }
 

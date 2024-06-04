@@ -16,16 +16,16 @@ class UdpSocket : public Socket
 {
 public:
     static Result<UdpSocket,int> Bind(std::string domain);
-    static Result<UdpSocket,int> Connect(std::string domain);
-    static Result<UdpSocket,int> Connect (const char* host, size_t port);
+    static Result<UdpSocket> Connect(std::string domain);
+    static Result<UdpSocket> Connect (const char* host, size_t port);
     static Result<UdpSocket,int> Connect_timeout(SocketAddr &addr, std::chrono::duration<int, std::ratio<1,2>> timeout);
 
     UdpSocket(int fd);
     size_t write(Slice<uint8_t> slice);
     size_t read(Slice<uint8_t> slice);
     /* Returns the socket address of the remote peer of this TCP connection. */
-    Result<SocketAddr,int> peer_addr();
-    Result<SocketAddr,int> local_addr();
+    Result<SocketAddr> peer_addr();
+    Result<SocketAddr> local_addr();
 
     //Result<void, string> shutdown(Shutdown how);
     Result<UdpSocket,int> try_clone();

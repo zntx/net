@@ -40,12 +40,13 @@ public:
     // #[must_use]
     // #[inline]
 
-    static Result<Ipv4Addr, int> create(uint8_t a, uint8_t b, uint8_t c, uint8_t d);
+    static Result<Ipv4Addr> create(uint8_t a, uint8_t b, uint8_t c, uint8_t d);
 
-    static Result<Ipv4Addr, int> create(std::string ips);
+    static Result<Ipv4Addr> create(std::string ips);
 
-    static Result<Ipv4Addr, int> create(const char *ips);
+    static Result<Ipv4Addr> create(const char *ips);
 
+    Ipv4Addr( );
     Ipv4Addr(uint8_t a, uint8_t b, uint8_t c, uint8_t d);
     //Ipv4Addr(uint32_t d);
     Ipv4Addr(const uint8_t (&array)[4]);
@@ -513,7 +514,7 @@ class Ipv6Addr{
 
 
 public:
-    static Result<Ipv6Addr, int> create(const char *ips);
+    static Result<Ipv6Addr> create(const char *ips);
 
     Ipv6Addr(struct in6_addr _sin);
 
@@ -1006,11 +1007,11 @@ public:
     static IpAddr V4( const Ipv4Addr & ip);
     static IpAddr V6( const Ipv6Addr & ip);
 
-    static Result<IpAddr, int> create(uint8_t a, uint8_t b, uint8_t c, uint8_t d);
+    static Result<IpAddr> create(uint8_t a, uint8_t b, uint8_t c, uint8_t d);
 
-    static Result<IpAddr, int> create(std::string ips);
+    static Result<IpAddr> create(std::string host);
 
-    static Result<IpAddr, int> create(const char *ips);
+    static Result<IpAddr> create(const char *ips);
 
     /// Returns [`true`] for the special 'unspecified' address.
     ///

@@ -8,7 +8,7 @@
 #include "socket_include.h"
 #include "TcpStream.h"
 
-Result<TcpStream, int> TcpStream::Connect(std::string domain)
+Result<TcpStream> TcpStream::Connect(std::string domain)
 {
     std::size_t pos = domain.find(":"); // position of "live" in str
     if (pos > 0)
@@ -18,7 +18,7 @@ Result<TcpStream, int> TcpStream::Connect(std::string domain)
         std::cout << host << ' ' << ports << '\n';
         int port = atoi(ports.c_str());
         
-        Result<TcpStream, int> tmp = TcpStream::Connect(host.c_str(), port);
+        auto tmp = TcpStream::Connect(host.c_str(), port);
         
         return tmp;
     }
@@ -73,7 +73,7 @@ Result<TcpStream,int> TcpStream::connect (const char* host, size_t port)
 
 #endif
 
-Result<TcpStream, int> TcpStream::Connect(const char *host, size_t port)
+Result<TcpStream> TcpStream::Connect(const char *host, size_t port)
 {
     char host_ip[50] = {0};
 
@@ -94,7 +94,7 @@ Result<TcpStream, int> TcpStream::Connect(const char *host, size_t port)
     printf("%s:%d %s()", __FILE__, __LINE__, __func__);
     printf("host addr %s\n", host);
     // 判断IP 是V4还是V6
-    Result<IpAddr, int> r_addr = IpAddr::create(host_ip);
+   auto r_addr = IpAddr::create(host_ip);
     if (r_addr.isErr())
     {
         return Err(r_addr.unwrapErr());
@@ -110,7 +110,7 @@ Result<TcpStream, int> TcpStream::Connect(const char *host, size_t port)
         {
             printf("%s:%d %s()", __FILE__, __LINE__, __func__);
             perror("socket error\n");
-            return Err(errno);
+            return Err(std::string(StrError(Errno)));
         }
 
         struct sockaddr_in server_sockaddr;
@@ -122,7 +122,7 @@ Result<TcpStream, int> TcpStream::Connect(const char *host, size_t port)
         if (ret < 0)
         {
             perror("connect");
-            return Err(errno);
+            return Err(std::string(StrError(Errno)));
         }
     }
     else
@@ -131,7 +131,7 @@ Result<TcpStream, int> TcpStream::Connect(const char *host, size_t port)
         if (strem < 0)
         {
             perror("setsockopet error\n");
-            return Err(errno);
+            return Err(std::string(StrError(Errno)));
         }
 
         struct sockaddr_in6 server_sockaddr6;
@@ -140,14 +140,14 @@ Result<TcpStream, int> TcpStream::Connect(const char *host, size_t port)
         if (ret < 0)
         {
             perror("connect");
-            return Err(errno);
+            return Err(std::string(StrError(Errno)));
         }
     }
     std::cout << " call 111111" << std::endl;
     return Ok(TcpStream(strem));
 }
 
-Result<TcpStream, int> Connect_timeout(SocketAddr &addr, std::chrono::duration<int, std::ratio<1, 2>> timeout)
+Result<TcpStream> Connect_timeout(SocketAddr &addr, std::chrono::duration<int, std::ratio<1, 2>> timeout)
 {
     char host_ip[50] = {0};
 
@@ -175,7 +175,7 @@ Result<TcpStream, int> Connect_timeout(SocketAddr &addr, std::chrono::duration<i
 #endif
     {
         // NETBASE_ERR("ioctl socket failed\n");
-        return Err(errno);
+        return Err(std::string(StrError(Errno)));
     }
 
     int ret_val = -1; // 接收函数返回
@@ -236,7 +236,7 @@ Result<TcpStream, int> Connect_timeout(SocketAddr &addr, std::chrono::duration<i
 #endif
     {
         // NETBASE_ERR("ioctl socket failed\n");
-        return Err(errno);
+        return Err(std::string(StrError(Errno)));
     }
 
     return Ok(TcpStream(sockfd));
@@ -354,7 +354,7 @@ Result<SocketAddr, int> TcpStream::local_addr()
 //     return Ok();
 // }
 
-Result<Option<struct timeval>, int> TcpStream::read_timeout()
+Result<Option<struct timeval>> TcpStream::read_timeout()
 {
 
     struct timeval tv;
@@ -367,7 +367,7 @@ Result<Option<struct timeval>, int> TcpStream::read_timeout()
     Option<struct timeval> ret = Some(tv);
     return Ok(std::move(ret));
 }
-Result<Option<struct timeval>, int> TcpStream::write_timeout()
+Result<Option<struct timeval>> TcpStream::write_timeout()
 {
     struct timeval tv;
     tv.tv_sec = 10;
@@ -399,7 +399,7 @@ Result<Option<struct timeval>, int> TcpStream::write_timeout()
 //     return Ok();
 // }
 
-Result<bool, int> TcpStream::nodelay()
+Result<bool> TcpStream::nodelay()
 {
     char nodelay = 0;
     int rc = setsockopt(this->fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(int));
@@ -430,13 +430,13 @@ Result<bool, int> TcpStream::nodelay()
 
 //     return Ok();
 // }
-Result<uint32_t, int> TcpStream::ttl()
+Result<uint32_t> TcpStream::ttl()
 {
     uint32_t x = 3;
     return Ok(std::move(x));
 }
 
-Result<TcpListener, int> TcpListener::bin(const char *host_name, uint16_t port)
+Result<TcpListener> TcpListener::bin(const char *host_name, uint16_t port)
 {
     struct addrinfo hints, *result;
     // char ipstr[INET6_ADDRSTRLEN];
@@ -449,7 +449,7 @@ Result<TcpListener, int> TcpListener::bin(const char *host_name, uint16_t port)
     if (status != 0)
     {
         fprintf(stderr, "getaddrinfo error: %s\n", gai_strerror(status));
-        return Err(errno);
+        return Err(std::string(StrError(Errno)));
     }
 
     int stream = -1;
@@ -551,12 +551,12 @@ Result<TcpListener, int> TcpListener::bin(const char *host_name, uint16_t port)
         {
             fprintf(stdout, "%s:%d socket_listen failed: errno %d\n", __FILE__, __LINE__, errno);
             close(stream);
-            return Err(errno);
+            return Err(std::string(StrError(Errno)));
         }
     }
 
     if (stream < 0)
-        return Err(errno);
+        return Err(std::string(StrError(Errno)));
     else
         return Ok(TcpListener(stream));
 }
@@ -572,7 +572,7 @@ TcpListener::TcpListener(TcpListener &&other) : TcpStream(other.fd)
 
 
 
-Result<TcpStream, int> TcpListener::Accept()
+Result<TcpStream> TcpListener::Accept()
 {
     struct sockaddr_in6 clent_addr;
     int addr_size = sizeof(struct sockaddr_in6);
@@ -581,13 +581,13 @@ Result<TcpStream, int> TcpListener::Accept()
     if (connect_fd < 0)
     {
         fprintf(stdout, "%s:%d accept failed: [errno %d] %s\n", __FILE__, __LINE__, errno, strerror(errno));
-        return Err(errno);
+        return Err(std::string(StrError(Errno)));
     }
 
     return Ok(TcpStream(connect_fd));
 }
 
-Result<TcpStream, int> TcpListener::AccepT_timeout(uint32_t msecond)
+Result<TcpStream> TcpListener::AccepT_timeout(uint32_t msecond)
 {
     /* 如果有超时时间，调用select判断在超时时间内，是否有数据传输进来 */
     struct timeval timeout;
@@ -611,13 +611,13 @@ Result<TcpStream, int> TcpListener::AccepT_timeout(uint32_t msecond)
             }
             else
             {
-                return Err(errno);
+                return Err(std::string(StrError(Errno)));
             }
         }
         else if (0 == ret) // select超时
         {
             // NETBASE_ERR("time out.\n");
-            return Err(errno);
+            return Err(std::string(StrError(Errno)));
         }
         else if (errno == EINTR)
         {
@@ -626,7 +626,7 @@ Result<TcpStream, int> TcpListener::AccepT_timeout(uint32_t msecond)
         else // select错???
         {
             // NETBASE_ERR( "select err.\n");
-            return Err(errno);
+            return Err(std::string(StrError(Errno)));
         }
     } while (0);
 
@@ -637,7 +637,7 @@ Result<TcpStream, int> TcpListener::AccepT_timeout(uint32_t msecond)
     if (connect_fd < 0)
     {
         // NETBASE_ERR("socket_accept_with_timeout failed: errno %d\n", errno);
-        return Err(errno);
+        return Err(std::string(StrError(Errno)));
     }
 
     return Ok(TcpStream(connect_fd));

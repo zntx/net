@@ -6,7 +6,7 @@
 #include <iostream>
 #include "UdpSocket.h"
 
-Result<UdpSocket, int> UdpSocket::Connect(std::string domain)
+Result<UdpSocket> UdpSocket::Connect(std::string domain)
 {
     std::size_t pos = domain.find(":"); // position of "live" in str
     if (pos > 0)
@@ -67,7 +67,7 @@ Result<UdpSocket,int> UdpSocket::connect (const char* host, size_t port)
 
 #endif
 
-Result<UdpSocket, int> UdpSocket::Connect(const char *host, size_t port)
+Result<UdpSocket> UdpSocket::Connect(const char *host, size_t port)
 {
     char host_ip[50] = {0};
 
@@ -86,7 +86,7 @@ Result<UdpSocket, int> UdpSocket::Connect(const char *host, size_t port)
         strncpy(host_ip, host, strlen(host));
 
     // 判断IP 是V4还是V6
-    Result<IpAddr, int> r_addr = IpAddr::create(host_ip);
+    auto r_addr = IpAddr::create(host_ip);
     if (r_addr.isErr())
     {
         return Err(r_addr.unwrapErr());
@@ -101,7 +101,7 @@ Result<UdpSocket, int> UdpSocket::Connect(const char *host, size_t port)
         if (strem < 0)
         {
             perror("setsockopet error\n");
-            return Err(errno);
+            return Err(std::string(StrError(Errno)));
         }
 
         struct sockaddr_in server_sockaddr;
@@ -113,7 +113,7 @@ Result<UdpSocket, int> UdpSocket::Connect(const char *host, size_t port)
         if (ret < 0)
         {
             perror("connect");
-            return Err(errno);
+            return Err(std::string(StrError(Errno)));
         }
     }
     else
@@ -122,7 +122,7 @@ Result<UdpSocket, int> UdpSocket::Connect(const char *host, size_t port)
         if (strem < 0)
         {
             perror("setsockopet error\n");
-            return Err(errno);
+            return Err(std::string(StrError(Errno)));
         }
 
         struct sockaddr_in6 server_sockaddr6;
@@ -131,14 +131,14 @@ Result<UdpSocket, int> UdpSocket::Connect(const char *host, size_t port)
         if (ret < 0)
         {
             perror("connect");
-            return Err(errno);
+            return Err(std::string(StrError(Errno)));
         }
     }
 
     return Ok(UdpSocket(strem));
 }
 
-Result<UdpSocket, int> Connect_timeout(SocketAddr &addr, std::chrono::duration<int, std::ratio<1, 2>> timeout)
+Result<UdpSocket> Connect_timeout(SocketAddr &addr, std::chrono::duration<int, std::ratio<1, 2>> timeout)
 {
     char host_ip[50] = {0};
 
@@ -170,7 +170,7 @@ Result<UdpSocket, int> Connect_timeout(SocketAddr &addr, std::chrono::duration<i
 #endif
     {
         // NETBASE_ERR("ioctl socket failed\n");
-        return Err(errno);
+        return Err(std::string(StrError(Errno)));
     }
 
     int ret_val = -1; // 接收函数返回
@@ -233,7 +233,7 @@ Result<UdpSocket, int> Connect_timeout(SocketAddr &addr, std::chrono::duration<i
 #endif
     {
         // NETBASE_ERR("ioctl socket failed\n");
-        return Err(errno);
+        return Err(std::string(StrError(Errno)));
     }
 
     return Ok(UdpSocket(sockfd));
@@ -254,7 +254,7 @@ size_t UdpSocket::write(Slice<uint8_t> slice)
     return send(this->fd, (char*)slice.addr, slice.len, 0);
 }
 
-Result<SocketAddr, int> UdpSocket::peer_addr()
+Result<SocketAddr> UdpSocket::peer_addr()
 {
     struct sockaddr_in peerAddr;
 
@@ -269,7 +269,7 @@ Result<SocketAddr, int> UdpSocket::peer_addr()
     return Ok(SocketAddr(SocketAddrV4(peerAddr)));
 }
 
-Result<SocketAddr, int> UdpSocket::local_addr()
+Result<SocketAddr> UdpSocket::local_addr()
 {
     struct sockaddr_in connectedAddr;
     int32_t len = sizeof(connectedAddr);

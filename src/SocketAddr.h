@@ -13,7 +13,7 @@ class SocketAddrV4{
 public:
     struct sockaddr_in sa;
     static Result<SocketAddrV4,int> create(std::string ips, uint16_t port);
-    static Result<SocketAddrV4,int> parse_ascii(Slice<uint8_t> slice);
+    static Result<SocketAddrV4> parse_ascii(Slice<uint8_t> slice);
     //这是一�?仅限夜间使用的实验�? API�?( #101035addr_parse_ascii)
     //从字节片�?解析 IPv4 套接字地址�?
     SocketAddrV4(struct sockaddr_in s);

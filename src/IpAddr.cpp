@@ -24,36 +24,39 @@
 #define IN_IS_ADDR_UNSPECIFIED(ip)			(!(ip))	//地址为全�?
 
 
-Result<Ipv4Addr, int> Ipv4Addr::create(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
+Result<Ipv4Addr> Ipv4Addr::create(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
 {
     if ( a > 255 || b> 255 || c >255 || d > 255)
     {
-        return Err(-1);
+        return Err(std::string("is big ten 255"));
     }
 
-    //in_addr_t s_addr =   a *256*256*256 + b *256*256+ c * 256+ d;
-
-	// struct in_addr ip_a;
-	// ip_a.s_addr = htonl(s_addr);
-    //Ipv4Addr ip(a, b, c, d);
     return Ok(Ipv4Addr(a, b, c, d));
 }
 
-Result<Ipv4Addr, int> Ipv4Addr::create(std::string ips)
+Result<Ipv4Addr> Ipv4Addr::create(std::string ips)
 {
 	return create(ips.c_str());
 }
 
-Result<Ipv4Addr, int> Ipv4Addr::create(const char *ips)
+Result<Ipv4Addr> Ipv4Addr::create(const char *ips)
 {
     struct in_addr ip_a;
     int ret = inet_pton(AF_INET, ips, &ip_a);
     if (ret <= 0)
     {
-        return Err(errno);
+        return Err(std::string(StrError(Errno)));
     }
 
     return Ok(Ipv4Addr(ip_a));
+}
+
+Ipv4Addr::Ipv4Addr( )
+{
+    _octets[0] = 0;
+    _octets[1] = 0;
+    _octets[2] = 0;
+    _octets[3] = 0;
 }
 
 Ipv4Addr::Ipv4Addr(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
@@ -219,21 +222,6 @@ Ipv6Addr Ipv4Addr::to_ipv6_mapped()
 std::string Ipv4Addr::to_string()
 {
     auto octets = this->_octets;
-
-    // If there are no alignment requirements, write the IP address directly to `f`.
-    // Otherwise, write it to a local buffer and then use `f.pad`.
-    // if fmt.precision().is_none() && fmt.width().is_none() {
-    //     write!(fmt, "{}.{}.{}.{}", octets[0], octets[1], octets[2], octets[3])
-    // } else {
-    //     const LONGEST_IPV4_ADDR: &str = "255.255.255.255";
-
-    //     let mut buf = DisplayBuffer::<{ LONGEST_IPV4_ADDR.len() }>::new();
-    //     // Buffer is long enough for the longest possible IPv4 address, so this should never fail.
-    //     write!(buf, "{}.{}.{}.{}", octets[0], octets[1], octets[2], octets[3]).unwrap();
-
-    //     fmt.pad(buf.as_str())
-    // }
-
     return std::to_string(octets[0]) + "." + std::to_string(octets[1]) + "." + std::to_string(octets[2]) + "." + std::to_string(octets[3]);
 }
 
@@ -321,12 +309,12 @@ namespace Ipv6Addr_Static
 
 
 
-Result<Ipv6Addr, int> Ipv6Addr::create(const char *ips)
+Result<Ipv6Addr> Ipv6Addr::create(const char *ips)
 {
 	struct in6_addr _sin;
     int ret = inet_pton(AF_INET6, ips, &_sin);
-    if (ret == 0 || errno == EAFNOSUPPORT) {
-        return Err(errno);
+    if (ret == 0 || Errno == EAFNOSUPPORT) {
+        return Err(std::string(StrError(Errno)));
     }
 	
 	return Ok(Ipv6Addr(_sin));
@@ -764,28 +752,25 @@ bool Ipv6Addr::operator==(const Ipv6Addr &other)
 
 // #[stable(feature = "ip_cmp", since = "1.16.0")]
 
-Result<IpAddr, int> IpAddr::create(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
+Result<IpAddr> IpAddr::create(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
 {
-    Result<Ipv4Addr, int>  ipv4 = Ipv4Addr::create(a, b, c, d);
+    auto  ipv4 = Ipv4Addr::create(a, b, c, d);
     if ( ipv4.isOk())
     {
         Ipv4Addr ips = ipv4.unwrap();
 
-        
         return Ok( IpAddr(ips) );
     }
 
-    int error = ipv4.unwrapErr();
-
-    return Err( error);
+    return Err( ipv4.unwrapErr());
 }
 
-Result<IpAddr, int> IpAddr::create( std::string host)
+Result<IpAddr> IpAddr::create(std::string host)
 {
     return create(host.c_str());
 }
 
-Result<IpAddr, int> IpAddr::create(const char *host)
+Result<IpAddr> IpAddr::create(const char *host)
 {
     int colons_numer = 0;
 
@@ -796,7 +781,7 @@ Result<IpAddr, int> IpAddr::create(const char *host)
     }
     if (colons_numer >= 2)
     {
-        Result<Ipv6Addr, int> r_v6 = Ipv6Addr::create(host);
+        auto r_v6 = Ipv6Addr::create(host);
         if (r_v6.isOk())
         {
             Ipv6Addr v6 = r_v6.unwrap();
@@ -804,7 +789,7 @@ Result<IpAddr, int> IpAddr::create(const char *host)
         }
         else
         {
-            return Err(r_v6.unwrapErr());
+            return Err(std::string(StrError(Errno)));
         }
     }
 
@@ -817,7 +802,7 @@ Result<IpAddr, int> IpAddr::create(const char *host)
 
     if (point_number == 3)
     {
-        Result<Ipv4Addr, int> r_v4 = Ipv4Addr::create(host);
+        auto r_v4 = Ipv4Addr::create(host);
         if (r_v4.isOk())
         {
             Ipv4Addr v4 = r_v4.unwrap();
@@ -825,7 +810,7 @@ Result<IpAddr, int> IpAddr::create(const char *host)
         }
         else
         {
-            return Err(r_v4.unwrapErr());
+            return Err(std::string(StrError(Errno)));
         }
     }
 }

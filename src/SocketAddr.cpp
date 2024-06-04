@@ -8,9 +8,9 @@
 #include "SocketAddr.h"
 
 
-Result<SocketAddrV4, int> SocketAddrV4::parse_ascii(Slice<uint8_t> slice)
+Result<SocketAddrV4> SocketAddrV4::parse_ascii(Slice<uint8_t> slice)
 {
-    return Err(1);
+    return Err(std::string(StrError(Errno)));
 }
 
 
@@ -102,10 +102,10 @@ std::string SocketAddrV6::to_string()
 /*
 
 */
-static Result<SocketAddr, int> create(std::string ips, uint16_t port)
+static Result<SocketAddr> create(std::string ips, uint16_t port)
 {
     // 判断IP 是V4还是V6
-    Result<IpAddr, int> r_addr = IpAddr::create(ips.c_str());
+    auto r_addr = IpAddr::create(ips.c_str());
     if (r_addr.isErr())
     {
         return Err(r_addr.unwrapErr());

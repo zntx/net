@@ -62,7 +62,6 @@ struct Result;
 
 namespace details
 {
-
     template <typename...>
     struct void_t
     {
@@ -884,7 +883,7 @@ namespace concept
 
 } // namespace concept
 
-template <typename T, typename E>
+template <typename T, typename E = std::string>
 struct Result
 {
 
