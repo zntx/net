@@ -111,7 +111,7 @@ public:
     // TODO: SFINAE-out if T is not trivially_copyable
     Option(const Option<T> &other)
     {
-        if (!other.isEmpty())
+        if (!other.is_empty())
         {
             ::new (data()) T(*other.data());
             initialized = true;
@@ -141,7 +141,7 @@ public:
     {
         static_assert(std::is_same<T, U>::value || std::is_convertible<T, U>::value,
                       "Types mismatch");
-        if (!isEmpty())
+        if (!is_empty())
         {
             data()->~T();
         }
@@ -151,7 +151,7 @@ public:
 
     Option<T> &operator=(types::None)
     {
-        if (!isEmpty())
+        if (!is_empty())
         {
             data()->~T();
         }
@@ -162,9 +162,9 @@ public:
     // TODO: SFINAE-out if T is not trivially_copyable
     Option<T> &operator=(const Option<T> &other)
     {
-        if (!other.isEmpty())
+        if (!other.is_empty())
         {
-            if (!isEmpty())
+            if (!is_empty())
             {
                 data()->~T();
             }
@@ -173,7 +173,7 @@ public:
         }
         else
         {
-            if (!isEmpty())
+            if (!is_empty())
             {
                 data()->~T();
             }
@@ -196,14 +196,14 @@ public:
         return *this;
     }
 
-    bool isEmpty() const
+    bool is_empty() const
     {
         return initialized == false;
     }
 
     T unwrap( )
     {
-        if (!isEmpty())
+        if (!is_empty())
         {
             return *constData();
         }
@@ -214,7 +214,7 @@ public:
 
     T unwrap_or(const T &defaultValue)
     {
-        if (!isEmpty())
+        if (!is_empty())
         {
             return *constData();
         }
@@ -222,9 +222,9 @@ public:
         return defaultValue;
     }
 
-    const T &getOrElse(const T &defaultValue) const
+    const T &get_or_else(const T &defaultValue) const
     {
-        if (!isEmpty())
+        if (!is_empty())
         {
             return *constData();
         }
@@ -235,7 +235,7 @@ public:
     template <typename Func>
     void unwrap_or_else(Func func) const
     {
-        if (isEmpty())
+        if (is_empty())
         {
             func();
         }
@@ -258,7 +258,7 @@ public:
 
     ~Option()
     {
-        if (!isEmpty())
+        if (!is_empty())
         {
             data()->~T();
         }
@@ -373,7 +373,7 @@ option_do(const Option<T> &option, Func func)
     details::static_checks<T, Func>();
     static_assert(std::is_same<typename types::callable_trait<Func>::ReturnType, void>::value,
                   "Use optionally_map if you want to return a value");
-    if (!option.isEmpty())
+    if (!option.is_empty())
     {
         func(details::tryMove<Func>(option.unsafeGet()));
     }
@@ -386,7 +386,7 @@ auto option_map(const Option<T> &option, Func func)
     -> Option<typename types::callable_trait<Func>::ReturnType>
 {
     details::static_checks<T, Func>();
-    if (!option.isEmpty())
+    if (!option.is_empty())
     {
         return Some(func(details::tryMove<Func>(option.unsafeGet())));
     }
@@ -399,10 +399,10 @@ auto option_fmap(const Option<T> &option, Func func)
     -> Option<typename details::RemoveOptional<typename types::callable_trait<Func>::ReturnType>::Type>
 {
     details::static_checks<T, Func>();
-    if (!option.isEmpty())
+    if (!option.is_empty())
     {
         const auto &ret = func(details::tryMove<Func>(option.unsafeGet()));
-        if (!ret.isEmpty())
+        if (!ret.is_empty())
         {
             return Some(ret.get());
         }
@@ -419,7 +419,7 @@ Option<T> option_filter(const Option<T> &option, Func func)
     static_assert(std::is_same<ReturnType, bool>::value ||
                       std::is_convertible<ReturnType, bool>::value,
                   "The predicate must return a boolean value");
-    if (!option.isEmpty() && func(option.get()))
+    if (!option.is_empty() && func(option.get()))
     {
         return Some(option.get());
     }

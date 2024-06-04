@@ -87,9 +87,9 @@ Result<UdpSocket> UdpSocket::Connect(const char *host, size_t port)
 
     // 判断IP 是V4还是V6
     auto r_addr = IpAddr::create(host_ip);
-    if (r_addr.isErr())
+    if (r_addr.is_err())
     {
-        return Err(r_addr.unwrapErr());
+        return Err(r_addr.unwrap_err());
     }
 
     IpAddr addr = r_addr.unwrap();

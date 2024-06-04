@@ -580,7 +580,7 @@ Option<Ipv4Addr> Ipv6Addr::to_ipv4_mapped()
 IpAddr Ipv6Addr::to_canonical()
 {
     Option<Ipv4Addr> mapped = this->to_ipv4_mapped();
-    if (!mapped.isEmpty())
+    if (!mapped.is_empty())
     {
         Ipv4Addr _mapped = mapped.unwrap();
 
@@ -755,14 +755,14 @@ bool Ipv6Addr::operator==(const Ipv6Addr &other)
 Result<IpAddr> IpAddr::create(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
 {
     auto  ipv4 = Ipv4Addr::create(a, b, c, d);
-    if ( ipv4.isOk())
+    if (ipv4.is_ok())
     {
         Ipv4Addr ips = ipv4.unwrap();
 
         return Ok( IpAddr(ips) );
     }
 
-    return Err( ipv4.unwrapErr());
+    return Err(ipv4.unwrap_err());
 }
 
 Result<IpAddr> IpAddr::create(std::string host)
@@ -782,7 +782,7 @@ Result<IpAddr> IpAddr::create(const char *host)
     if (colons_numer >= 2)
     {
         auto r_v6 = Ipv6Addr::create(host);
-        if (r_v6.isOk())
+        if (r_v6.is_ok())
         {
             Ipv6Addr v6 = r_v6.unwrap();
             return Ok(IpAddr(v6));
@@ -803,7 +803,7 @@ Result<IpAddr> IpAddr::create(const char *host)
     if (point_number == 3)
     {
         auto r_v4 = Ipv4Addr::create(host);
-        if (r_v4.isOk())
+        if (r_v4.is_ok())
         {
             Ipv4Addr v4 = r_v4.unwrap();
             return Ok(IpAddr(v4));

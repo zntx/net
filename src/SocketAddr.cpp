@@ -106,9 +106,9 @@ static Result<SocketAddr> create(std::string ips, uint16_t port)
 {
     // 判断IP 是V4还是V6
     auto r_addr = IpAddr::create(ips.c_str());
-    if (r_addr.isErr())
+    if (r_addr.is_err())
     {
-        return Err(r_addr.unwrapErr());
+        return Err(r_addr.unwrap_err());
     }
 
     IpAddr addr = r_addr.unwrap();

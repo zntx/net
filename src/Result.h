@@ -171,7 +171,7 @@ namespace details
                             std::is_convertible<T, Arg>::value,
                         "Incompatible types detected");
 
-                    if (result.isOk())
+                    if (result.is_ok())
                     {
                         auto res = func(result.storage().template get<T>());
                         return types::Ok<Ret>(std::move(res));
@@ -190,7 +190,7 @@ namespace details
                 static Result<void, E> map(const Result<T, E> &result, Func func)
                 {
 
-                    if (result.isOk())
+                    if (result.is_ok())
                     {
                         func(result.storage().template get<T>());
                         return types::Ok<void>();
@@ -211,7 +211,7 @@ namespace details
                     static_assert(std::is_same<T, void>::value,
                                   "Can not map a void callback on a non-void Result");
 
-                    if (result.isOk())
+                    if (result.is_ok())
                     {
                         auto ret = func();
                         return types::Ok<Ret>(std::move(ret));
@@ -232,7 +232,7 @@ namespace details
                     static_assert(std::is_same<T, void>::value,
                                   "Can not map a void callback on a non-void Result");
 
-                    if (result.isOk())
+                    if (result.is_ok())
                     {
                         func();
                         return types::Ok<void>();
@@ -255,7 +255,7 @@ namespace details
                             std::is_convertible<T, Arg>::value,
                         "Incompatible types detected");
 
-                    if (result.isOk())
+                    if (result.is_ok())
                     {
                         auto res = func(result.storage().template get<T>());
                         return res;
@@ -275,7 +275,7 @@ namespace details
                 {
                     static_assert(std::is_same<T, void>::value, "Can not call a void-callback on a non-void Result");
 
-                    if (result.isOk())
+                    if (result.is_ok())
                     {
                         auto res = func();
                         return res;
@@ -328,12 +328,12 @@ namespace details
             {
 
                 static_assert(!IsResult<Ret>::value,
-                              "Can not map a callback returning a Result, use orElse instead");
+                              "Can not map a callback returning a Result, use or_else instead");
 
                 template <typename T, typename E, typename Func>
                 static Result<T, Ret> map(const Result<T, E> &result, Func func)
                 {
-                    if (result.isErr())
+                    if (result.is_err())
                     {
                         auto res = func(result.storage().template get<E>());
                         return types::Err<Ret>(res);
@@ -345,7 +345,7 @@ namespace details
                 template <typename E, typename Func>
                 static Result<void, Ret> map(const Result<void, E> &result, Func func)
                 {
-                    if (result.isErr())
+                    if (result.is_err())
                     {
                         auto res = func(result.storage().template get<E>());
                         return types::Err<Ret>(res);
@@ -397,7 +397,7 @@ namespace details
                 template <typename T, typename E, typename Func>
                 static Result<T, E> then(const Result<T, E> &result, Func func)
                 {
-                    if (result.isOk())
+                    if (result.is_ok())
                     {
                         func(result.storage().template get<T>());
                     }
@@ -416,7 +416,7 @@ namespace details
                 {
                     static_assert(std::is_same<T, void>::value, "Can not call a void-callback on a non-void Result");
 
-                    if (result.isOk())
+                    if (result.is_ok())
                     {
                         func();
                     }
@@ -485,7 +485,7 @@ namespace details
                             std::is_convertible<E, Arg>::value,
                         "Incompatible types detected");
 
-                    if (result.isErr())
+                    if (result.is_err())
                     {
                         auto res = func(result.storage().template get<E>());
                         return res;
@@ -497,7 +497,7 @@ namespace details
                 template <typename E, typename Func>
                 static Result<void, F> orElse(const Result<void, E> &result, Func func)
                 {
-                    if (result.isErr())
+                    if (result.is_err())
                     {
                         auto res = func(result.storage().template get<E>());
                         return res;
@@ -517,7 +517,7 @@ namespace details
                     static_assert(std::is_same<T, void>::value,
                                   "Can not call a void-callback on a non-void Result");
 
-                    if (result.isErr())
+                    if (result.is_err())
                     {
                         auto res = func();
                         return res;
@@ -529,7 +529,7 @@ namespace details
                 template <typename E, typename Func>
                 static Result<void, F> orElse(const Result<void, E> &result, Func func)
                 {
-                    if (result.isErr())
+                    if (result.is_err())
                     {
                         auto res = func();
                         return res;
@@ -600,9 +600,9 @@ namespace details
                         "Incompatible types detected");
 
                     static_assert(std::is_same<Ret, void>::value,
-                                  "callback should not return anything, use mapError() for that");
+                                  "callback should not return anything, use map_error() for that");
 
-                    if (result.isErr())
+                    if (result.is_err())
                     {
                         func(result.storage().template get<E>());
                     }
@@ -906,7 +906,7 @@ struct Result
 
     Result(Result &&other)
     {
-        if (other.isOk())
+        if (other.is_ok())
         {
             details::Constructor<T, E>::move(std::move(other.storage_), storage_, details::ok_tag());
             ok_ = true;
@@ -924,7 +924,7 @@ struct Result
 
     // Result(const Result &other)
     // {
-    //     if (other.isOk())
+    //     if (other.is_ok())
     //     {
     //         details::Constructor<T, E>::copy(other.storage_, storage_, details::ok_tag());
     //         ok_ = true;
@@ -944,19 +944,19 @@ struct Result
             storage_.destroy(details::err_tag());
     }
 
-    bool isOk() const
+    bool is_ok() const
     {
         return ok_;
     }
 
-    bool isErr() const
+    bool is_err() const
     {
         return err_;
     }
 
     T expect(const char *str) const
     {
-        if (!isOk())
+        if (!is_ok())
         {
             std::fprintf(stderr, "%s\n", str);
             std::terminate();
@@ -980,7 +980,7 @@ struct Result
                   Result<T,
                          typename details::ResultErrType<
                              typename details::result_of<Func>::type>::type>>
-    Ret mapError(Func func) const
+    Ret map_error(Func func) const
     {
         return details::mapError(*this, func);
     }
@@ -1000,7 +1000,7 @@ struct Result
     template <typename Func,
               typename Ret =
                   Result<T, typename details::ResultErrType<typename details::result_of<Func>::type>::type>>
-    Ret orElse(Func func) const
+    Ret or_else(Func func) const
     {
         return details::orElse(*this, func);
     }
@@ -1017,9 +1017,9 @@ struct Result
 
     template <typename U = T>
     typename std::enable_if<!std::is_same<U, void>::value, U>::type
-    unwrapOr(const U &defaultValue) const
+    unwrap_or(const U &defaultValue) const
     {
-        if (isOk())
+        if (is_ok())
         {
             ok_ = false;
             return storage().template take<U>();
@@ -1031,7 +1031,7 @@ struct Result
     typename std::enable_if< !std::is_same<U, void>::value, U>::type
     unwrap()
     {
-        if (isOk())
+        if (is_ok())
         {
             ok_ = false;
             return storage().template take<U>();
@@ -1041,15 +1041,15 @@ struct Result
         std::terminate();
     }
 
-    E unwrapErr()
+    E unwrap_err()
     {
-        if (isErr())
+        if (is_err())
         {
             err_ = false;
             return storage().template get<E>();
         }
 
-        std::fprintf(stderr, "Attempting to unwrapErr an ok Result\n");
+        std::fprintf(stderr, "Attempting to unwrap_err an ok Result\n");
         std::terminate();
     }
 
@@ -1068,11 +1068,11 @@ bool operator==(const Result<T, E> &lhs, const Result<T, E> &rhs)
     static_assert(concept ::EqualityComparable<T>::value, "T must be EqualityComparable for Result to be comparable");
     static_assert(concept ::EqualityComparable<E>::value, "E must be EqualityComparable for Result to be comparable");
 
-    if (lhs.isOk() && rhs.isOk())
+    if (lhs.is_ok() && rhs.is_ok())
     {
         return lhs.storage().template get<T>() == rhs.storage().template get<T>();
     }
-    if (lhs.isErr() && rhs.isErr())
+    if (lhs.is_err() && rhs.is_err())
     {
         return lhs.storage().template get<E>() == rhs.storage().template get<E>();
     }
@@ -1083,7 +1083,7 @@ bool operator==(const Result<T, E> &lhs, types::Ok<T> ok)
 {
     static_assert(concept ::EqualityComparable<T>::value, "T must be EqualityComparable for Result to be comparable");
 
-    if (!lhs.isOk())
+    if (!lhs.is_ok())
         return false;
 
     return lhs.storage().template get<T>() == ok.val;
@@ -1092,14 +1092,14 @@ bool operator==(const Result<T, E> &lhs, types::Ok<T> ok)
 template <typename E>
 bool operator==(const Result<void, E> &lhs, types::Ok<void>)
 {
-    return lhs.isOk();
+    return lhs.is_ok();
 }
 
 template <typename T, typename E>
 bool operator==(const Result<T, E> &lhs, types::Err<E> err)
 {
     static_assert(concept ::EqualityComparable<E>::value, "E must be EqualityComparable for Result to be comparable");
-    if (!lhs.isErr())
+    if (!lhs.is_err())
         return false;
 
     return lhs.storage().template get<E>() == err.val;
