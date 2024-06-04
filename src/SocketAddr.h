@@ -4,22 +4,6 @@
 #include "Option.h"
 #include "Result.h"
 #include "IpAddr.h"
-#if defined(WIN32) || defined(_WIN32) || defined(_WIN32_) || defined(WIN64) || defined(_WIN64) || defined(_WIN64_)
-//Windows平台
-
-#elif defined(ANDROID) || defined(_ANDROID_)
-//Android平台
-#elif defined(__linux__)
-//Linux平台
-#include <netinet/tcp.h>
-#include <netinet/in.h>
-#elif defined(__APPLE__) || defined(TARGET_OS_IPHONE) || defined(TARGET_IPHONE_SIMULATOR) || defined(TARGET_OS_MAC)
-//iOS、Mac平台
-#else
-//#define PLATFORM_UNKNOWN 1
-#endif
-
-
 
 class AddrParseError{
     

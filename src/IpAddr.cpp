@@ -5,37 +5,7 @@
 #include <fcntl.h>
 #include <iostream>
 #include "zstdint.h"
-
-#if defined(WIN32) || defined(_WIN32) || defined(_WIN32_) || defined(WIN64) || defined(_WIN64) || defined(_WIN64_)
-//Windows平台
-#include <winsock2.h>
-#include <in6addr.h>
-#include <ws2tcpip.h>
-#include <Ws2tcpip.h >
-#elif defined(ANDROID) || defined(_ANDROID_)
-//Android平台
-#elif defined(__linux__)
-//Linux平台
-#include <sys/shm.h>
-#include <sys/types.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <netinet/tcp.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <net/if.h>
-#include <net/route.h>
-#include <linux/sockios.h>
-#include <netdb.h>
-#elif defined(__APPLE__) || defined(TARGET_OS_IPHONE) || defined(TARGET_IPHONE_SIMULATOR) || defined(TARGET_OS_MAC)
-//iOS、Mac平台
-#else
-#define PLATFORM_UNKNOWN 1
-#endif
 #include "IpAddr.h"
-
-
-
 
 /* IP地址合法性判�?宏定�?,�?针�?�IPv4地址 */
 #define NET_SWAP_32(x)						((((x)&0xff000000) >> 24)\

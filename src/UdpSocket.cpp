@@ -3,30 +3,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <fcntl.h>
-#if defined(WIN32) || defined(_WIN32) || defined(_WIN32_) || defined(WIN64) || defined(_WIN64) || defined(_WIN64_)
-//Windowsƽ̨
-
-#elif defined(ANDROID) || defined(_ANDROID_)
-//Androidƽ̨
-#elif defined(__linux__)
-//Linuxƽ̨
-#include <sys/shm.h>
-#include <sys/types.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <netinet/tcp.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <net/if.h>
-#include <net/route.h>
-#include <linux/sockios.h>
-#include <netdb.h>
-#elif defined(__APPLE__) || defined(TARGET_OS_IPHONE) || defined(TARGET_IPHONE_SIMULATOR) || defined(TARGET_OS_MAC)
-//iOS��Macƽ̨
-#else
-//#define PLATFORM_UNKNOWN 1
-#endif
-
 #include <iostream>
 #include "UdpSocket.h"
 

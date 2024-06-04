@@ -7,25 +7,10 @@ https://doc.rust-lang.org/std/net/enum.IpAddr.html
 #ifndef IPADDR_H_H
 #define IPADDR_H_H
 #include <stdint.h>
-#if defined(WIN32) || defined(_WIN32) || defined(_WIN32_) || defined(WIN64) || defined(_WIN64) || defined(_WIN64_)
-//Windowsƽ̨
-#include <winsock2.h>
-#include <in6addr.h>
-#include <ws2tcpip.h>
-#elif defined(ANDROID) || defined(_ANDROID_)
-//Androidƽ̨
-#elif defined(__linux__)
-//Linuxƽ̨
-#include <arpa/inet.h>
-#elif defined(__APPLE__) || defined(TARGET_OS_IPHONE) || defined(TARGET_IPHONE_SIMULATOR) || defined(TARGET_OS_MAC)
-//iOS��Macƽ̨
-#else
-//#define PLATFORM_UNKNOWN 1
-#endif
-
 #include "Slice.h"
 #include "Result.h"
 #include "Option.h"
+#include "socket_include.h"
 
 
 class Ipv4Addr;
