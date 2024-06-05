@@ -40,11 +40,11 @@ public:
     // #[must_use]
     // #[inline]
 
-    static Result<Ipv4Addr> create(uint8_t a, uint8_t b, uint8_t c, uint8_t d);
+    static Result<Ipv4Addr> Create(uint8_t a, uint8_t b, uint8_t c, uint8_t d);
 
-    static Result<Ipv4Addr> create(std::string ips);
+    static Result<Ipv4Addr> Create(std::string ips);
 
-    static Result<Ipv4Addr> create(const char *ips);
+    static Result<Ipv4Addr> Create(Slice<const char> ips);
 
     Ipv4Addr( );
     Ipv4Addr(uint8_t a, uint8_t b, uint8_t c, uint8_t d);
@@ -514,7 +514,7 @@ class Ipv6Addr{
 
 
 public:
-    static Result<Ipv6Addr> create(const char *ips);
+    static Result<Ipv6Addr> Create(Slice<const char> ips);
 
     Ipv6Addr(struct in6_addr _sin);
 
@@ -1009,9 +1009,9 @@ public:
 
     static Result<IpAddr> create(uint8_t a, uint8_t b, uint8_t c, uint8_t d);
 
-    static Result<IpAddr> create(std::string host);
+    static Result<IpAddr> Create(std::string host);
 
-    static Result<IpAddr> create(const char *ips);
+    static Result<IpAddr> Create(Slice<const char> host);
 
     /// Returns [`true`] for the special 'unspecified' address.
     ///

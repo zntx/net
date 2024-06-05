@@ -894,7 +894,7 @@ struct Result
     Result(types::Ok<T> ok)
         : ok_(true),err_(false)
     {
-        printf("call in result\n");
+        //printf("call in result\n");
         storage_.construct(std::move(ok));
     }
 

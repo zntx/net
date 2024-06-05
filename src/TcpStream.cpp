@@ -94,7 +94,7 @@ Result<TcpStream> TcpStream::Connect(const char *host, size_t port)
     printf("%s:%d %s()", __FILE__, __LINE__, __func__);
     printf("host addr %s\n", host);
     // 判断IP 是V4还是V6
-   auto r_addr = IpAddr::create(host_ip);
+   auto r_addr = IpAddr::Create(host_ip);
     if (r_addr.is_err())
     {
         return Err(r_addr.unwrap_err());

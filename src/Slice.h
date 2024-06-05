@@ -4,7 +4,7 @@
 //#include <atomic>
 //#include <stddef.h>
 //#include <stddef.h>
-
+#include "Option.h"
 template <typename T>
 class Slice {
 public:
@@ -65,15 +65,67 @@ public:
 
         return false;
     }
-    
-    Slice slice(size_t pso, size_t size)
+
+    Option<std::size_t> find( T ch)
     {
-        return Slice(this->address + pso, size);
+        for( std::size_t index = 0; index < this->len; index++)
+        {
+            if( *( this->addr + index) == ch)
+                return Some(index);
+        }
+        return None();
     }
 
-    Slice slice(size_t pso )
+    std::size_t find_count( T ch)
     {
-        return Slice(this->address + pso, this->len - pso);
+        std::size_t count = 0;
+        for( std::size_t index = 0; index < this->len; index++)
+        {
+            if( *( this->addr + index) == ch)
+                count++;
+        }
+        return count;
+    }
+
+    Option<std::size_t> find( Slice<T> ch)
+    {
+        std::size_t j = 0;
+        for( std::size_t i = 0; i < this->len - ch.len; i++)
+        {
+            for(  j = 0; i < ch.len; j++)
+            {
+                if( *( this->addr + i + j) != *( ch.addr + j))
+                    break;
+            }
+
+            if( j = ch.len)
+                return Some(i);
+
+
+        }
+        return None();
+    }
+
+    Option<Slice> slice(size_t start, size_t end)
+    {
+        if ( start >= this->len)
+            return None();
+
+        if ( end >= this->len)
+            return None();
+
+        if ( end <= start)
+            return None();
+
+        return Some(Slice(this->addr + start, end - start));
+    }
+
+    Option<Slice> slice(size_t pos )
+    {
+        if ( pos >= this->len)
+            return None();
+
+        return Some(Slice(this->addr + pos, this->len - pos));
     }
 };
 

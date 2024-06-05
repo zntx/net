@@ -83,6 +83,11 @@ SocketAddrV6::SocketAddrV6(struct sockaddr_in6 *s)
 }
 
 
+uint16_t SocketAddrV6::port()
+{
+    return ntohs(this->sa.sin6_port);
+}
+
 std::string SocketAddrV6::to_string()
 {
     char ip_str[INET6_ADDRSTRLEN];
@@ -93,16 +98,26 @@ std::string SocketAddrV6::to_string()
     {
     }
 
-    return std::string(ip_str) + ":" + std::to_string(this->sa.sin6_port);
+    return std::string(ip_str) + ":" + std::to_string(this->port());
 }
 
 /*
 
 */
-static Result<SocketAddr> create(std::string ips, uint16_t port)
+Result<SocketAddr> SocketAddr::Create(std::string ips)
+{
+    return Create( Slice<const char>(ips.c_str(), ips.length()));
+}
+
+Result<SocketAddr> SocketAddr::Create(std::string ips, uint16_t port)
+{
+    return Create( Slice<const char>(ips.c_str(), ips.length()), port);
+}
+
+Result<SocketAddr> SocketAddr::Create(Slice<const char> domain, uint16_t port)
 {
     // 判断IP 是V4还是V6
-    auto r_addr = IpAddr::create(ips.c_str());
+    auto r_addr = IpAddr::Create(domain);
     if (r_addr.is_err())
     {
         return Err(r_addr.unwrap_err());
@@ -116,6 +131,66 @@ static Result<SocketAddr> create(std::string ips, uint16_t port)
     }
 
     return Ok(SocketAddr(SocketAddrV6(addr.sin6, port)));
+}
+
+Result<SocketAddr> SocketAddr::Create( Slice<const char> domain)
+{
+    auto start = domain.find('[');
+    if( !start.is_empty()) // [:::::]:port
+    {
+        const char* end_str = "]:";
+        auto end = domain.find(Slice<const char>(end_str, 2));
+        if( start.is_empty())
+        {
+            return Err(std::string("[]: 格式不对"));
+        }
+
+        auto start_real = start.unwrap();
+        auto end_real = end.unwrap();
+
+        auto ips = domain.slice(start_real + 1, end_real);
+        auto ports = domain.slice(end_real + 3);
+
+        if( ips.is_empty() || ports.is_empty())
+        {
+            return Err(std::string("[]: 格式不对"));
+        }
+
+        int port = atoi(ports.unwrap().addr);
+
+        return Create(domain, (uint16_t)port);
+    }
+
+    if(domain.find_count(':') > 1)//ipcv6
+    {
+        printf("find ip v6\n");
+        return Create(domain, 0);
+    }
+
+    auto postion = domain.find(':');
+    if(postion.is_empty())
+    {
+        return Create(domain, 0);
+    }
+    else //*.*.*.*:port
+    {
+        auto postion_real = postion.unwrap();
+        auto ips = domain.slice(0, postion_real);
+        auto ports = domain.slice(postion_real + 1);
+
+        if( ips.is_empty() || ports.is_empty())
+        {
+            return Err(std::string("[]: 格式不对"));
+        }
+
+        int port = atoi(ports.unwrap().addr);
+
+        auto ips_slic = ips.unwrap();
+        printf("ips_slic %s %zu\n",  ips_slic.addr, ips_slic.len );
+
+        return Create(ips_slic, (uint16_t)port);
+    }
+
 }
 
 SocketAddr::SocketAddr():is_v4(true)
@@ -189,9 +264,21 @@ SocketAddr &SocketAddr::operator=(const SocketAddr &addr)
     return *this;
 }
 
+uint16_t SocketAddr::port( )
+{
+    if (this->is_v4)
+    {
+        return ntohs(this->sin4.sin_port);
+    }
+    else
+    {
+        return ntohs(this->sin6.sin6_port);
+    }
+}
+
 std::string SocketAddr::to_string()
 {
-    char ip_str[INET6_ADDRSTRLEN];
+    char ip_str[INET6_ADDRSTRLEN] = {0};
     if (this->is_v4)
     {
         const void *src = &(this->sin4.sin_addr);
@@ -200,7 +287,7 @@ std::string SocketAddr::to_string()
         {
         }
 
-        return std::string(ip_str) + ":" + std::to_string(this->sin4.sin_port);
+        return std::string(ip_str) + ":" + std::to_string(this->port());
 
         // return std::string(inet_ntoa(this->sa.sin4.sin_addr)) + ":" + std::to_string(this->sa.sin4.sin_port);
     }
@@ -212,6 +299,6 @@ std::string SocketAddr::to_string()
         {
         }
 
-        return std::string(ip_str) + ":" + std::to_string(this->sin6.sin6_port);
+        return std::string(ip_str) + ":" + std::to_string(this->port());
     }
 }

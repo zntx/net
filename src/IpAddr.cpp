@@ -24,7 +24,7 @@
 #define IN_IS_ADDR_UNSPECIFIED(ip)			(!(ip))	//地址为全�?
 
 
-Result<Ipv4Addr> Ipv4Addr::create(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
+Result<Ipv4Addr> Ipv4Addr::Create(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
 {
     if ( a > 255 || b> 255 || c >255 || d > 255)
     {
@@ -34,20 +34,58 @@ Result<Ipv4Addr> Ipv4Addr::create(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
     return Ok(Ipv4Addr(a, b, c, d));
 }
 
-Result<Ipv4Addr> Ipv4Addr::create(std::string ips)
+Result<Ipv4Addr> Ipv4Addr::Create(std::string ips)
 {
-	return create(ips.c_str());
+	return Create(Slice<const char>(ips.c_str(),ips.length()));
 }
 
-Result<Ipv4Addr> Ipv4Addr::create(const char *ips)
+Result<Ipv4Addr> Ipv4Addr::Create(Slice<const char> ips)
 {
+    uint32_t  key = 0;
+    uint32_t  spot = 0;
+    for(std::size_t i = 0; i < ips.len; i++ )
+    {
+        if( ips.addr[i] == '.')
+        {
+            if( key >255)
+            {
+                return Err(std::string("is big ten 255"));
+            }
+            spot++;
+            key = 0;
+        }
+        else
+        {
+            if( ips.addr[i] >= '0' && ips.addr[i] <= '9')
+            {
+                key = key *10 + ips.addr[i] - '0';
 
+                if( key == 0 && ips.addr[i] >= '0')
+                {
+                    return Err(std::string("can not start whith 0"));
+                }
+            }
+            else
+            {
+                return Err(std::string("not a number"));
+            }
+        }
+    }
 
+    if( spot != 3)
+    {
+        return Err(std::string("Delimiter not equal to 3"));
+    }
 
+    char ip_string[16] = {0};
+    for(std::size_t i = 0; i < ips.len; i++ )
+    {
+        sprintf(ip_string + strlen(ip_string), "%c", *(ips.addr + i));
+    }
 
-
+    printf("ip_string %s\n", ip_string);
     struct in_addr ip_a;
-    int ret = inet_pton(AF_INET, ips, &ip_a);
+    int ret = inet_pton(AF_INET, ip_string, &ip_a);
     if (ret <= 0)
     {
         return Err(std::string(StrError(Errno)));
@@ -312,13 +350,64 @@ namespace Ipv6Addr_Static
 
 }
 
+bool isHexDigit(char c) {
+    return (c >= '0' && c <= '9') ||
+           (c >= 'a' && c <= 'f') ||
+           (c >= 'A' && c <= 'F');
+}
 
-
-Result<Ipv6Addr> Ipv6Addr::create(const char *ips)
+Result<Ipv6Addr> Ipv6Addr::Create(Slice<const char> ips)
 {
-	struct in6_addr _sin;
-    int ret = inet_pton(AF_INET6, ips, &_sin);
-    if (ret == 0 || Errno == EAFNOSUPPORT) {
+    // IPv6地址包含8组16位十六进制数，各组之间由冒号分隔
+    // 可以有零压缩，即连续的冒号可以省略多组0
+    int compresse = 0;
+    int compressed_groups = 0;
+    std::size_t number = 0;
+
+    for (std::size_t index = 0; index < ips.len; index++)
+    {
+        if ( *(ips.addr + index) == ':')
+        {
+            if ( number > 4)
+            {
+                return Err(std::string("characters to match")); // 压缩区内的多余冒号
+            }
+            number = 0;
+
+            compresse++;
+            if (compresse == 1)
+            {
+                compressed_groups++;
+            }
+            if (compresse > 2)
+            {
+                return Err(std::string(": to match")); // 压缩区内的多余冒号
+            }
+        } else if (isHexDigit(*(ips.addr + index)))
+        {
+            compresse = 0;
+            number++;
+        } else
+        {
+            return Err(std::string("Illegal characters"));
+        }
+    }
+
+    if ( number > 4)
+    {
+        return Err(std::string("characters to match")); // 压缩区内的多余冒号
+    }
+
+    // 必须有且仅有8组（考虑零压缩）
+    if (compressed_groups > 8)
+    {
+        return Err(std::string("Illegal characters"));
+    }
+
+    struct in6_addr _sin;
+    int ret = inet_pton(AF_INET6, ips.addr, &_sin);
+    if (ret == 0 || Errno == EAFNOSUPPORT)
+    {
         return Err(std::string(StrError(Errno)));
     }
 	
@@ -723,6 +812,15 @@ std::string Ipv6Addr::to_string()
             // }
         }
 #endif
+        char ip6text[INET6_ADDRSTRLEN] = {0};
+        /* convert ip from binary to text  for IPv6  */
+        const char* str = inet_ntop(AF_INET6, &this->sin, ip6text, sizeof(ip6text));
+        if (str == NULL) {
+            perror("inet_ntop error");
+            return "";
+        }
+
+        return std::string(ip6text);
     }
 }
 
@@ -759,7 +857,7 @@ bool Ipv6Addr::operator==(const Ipv6Addr &other)
 
 Result<IpAddr> IpAddr::create(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
 {
-    auto  ipv4 = Ipv4Addr::create(a, b, c, d);
+    auto  ipv4 = Ipv4Addr::Create(a, b, c, d);
     if (ipv4.is_ok())
     {
         Ipv4Addr ips = ipv4.unwrap();
@@ -770,44 +868,16 @@ Result<IpAddr> IpAddr::create(uint8_t a, uint8_t b, uint8_t c, uint8_t d)
     return Err(ipv4.unwrap_err());
 }
 
-Result<IpAddr> IpAddr::create(std::string host)
+Result<IpAddr> IpAddr::Create(std::string host)
 {
-    return create(host.c_str());
+    return Create(Slice<const char>(host.c_str(),host.length()));
 }
 
-Result<IpAddr> IpAddr::create(const char *host)
+Result<IpAddr> IpAddr::Create(Slice<const char> host)
 {
-    int colons_numer = 0;
-
-    for (int i = 0; i < strlen(host); i++)
+    if( host.find(':').is_empty() )
     {
-        if (host[i] == ':')
-            colons_numer++;
-    }
-    if (colons_numer >= 2)
-    {
-        auto r_v6 = Ipv6Addr::create(host);
-        if (r_v6.is_ok())
-        {
-            Ipv6Addr v6 = r_v6.unwrap();
-            return Ok(IpAddr(v6));
-        }
-        else
-        {
-            return Err(std::string(StrError(Errno)));
-        }
-    }
-
-    int point_number = 0;
-    for (int i = 0; i < strlen(host); i++)
-    {
-        if (host[i] == '.')
-            point_number++;
-    }
-
-    if (point_number == 3)
-    {
-        auto r_v4 = Ipv4Addr::create(host);
+        auto r_v4 = Ipv4Addr::Create(host);
         if (r_v4.is_ok())
         {
             Ipv4Addr v4 = r_v4.unwrap();
@@ -815,7 +885,20 @@ Result<IpAddr> IpAddr::create(const char *host)
         }
         else
         {
-            return Err(std::string(StrError(Errno)));
+            return Err(r_v4.unwrap_err());
+        }
+    }
+    else
+    {
+        auto r_v6 = Ipv6Addr::Create(host);
+        if (r_v6.is_ok())
+        {
+            Ipv6Addr v6 = r_v6.unwrap();
+            return Ok(IpAddr(v6));
+        }
+        else
+        {
+            return Err(r_v6.unwrap_err());
         }
     }
 }
