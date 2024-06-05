@@ -23,13 +23,11 @@ public:
     SocketAddrV4(SocketAddrV4 && addr);
     SocketAddrV4& operator =(const SocketAddrV4& addr);//赋值运算�??
 
-
     Ipv4Addr ip();
     uint16_t port();
     void set_port(uint16_t port);
     std::string to_string();
-
-
+    
 };
 
 
@@ -73,7 +71,6 @@ public:
 
     SocketAddr& operator=(SocketAddr&& slice);
     SocketAddr& operator=(const SocketAddr& slice);
-
 
     uint16_t port( );
 
