@@ -2,7 +2,10 @@
 #include "net.h"
 int test_client(int agrc, char *agrv[])
 {
-    auto stream_pack = TcpStream::Connect("10.112.219.204:80");
+    struct timeval timeout;
+    timeout.tv_sec = 10;
+    timeout.tv_usec = 10;
+    auto stream_pack = TcpStream::Connect_timeout("10.112.219.204:80", timeout);
     if (stream_pack.is_err())
     {
         printf("connect fail£º %s \n", stream_pack.unwrap_err().c_str());
@@ -11,6 +14,20 @@ int test_client(int agrc, char *agrv[])
 
     printf("connect OK \n");
     TcpStream stream = stream_pack.unwrap();
+
+
+    auto local_addr = stream.local();
+    if( local_addr.is_ok())
+    {
+        std::cout << "--" << local_addr.unwrap().to_string() << std::endl;
+    }
+
+    auto peer_addr = stream.peer();
+    if( peer_addr.is_ok())
+    {
+        std::cout << "--" << peer_addr.unwrap().to_string() << std::endl;
+    }
+
 
     printf("stream socket %u\n", stream.get_socket());
 

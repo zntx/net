@@ -266,7 +266,7 @@ Result<TcpStream> Connect_timeout(SocketAddr &addr, std::chrono::duration<int, s
 
 
 
-Result<TcpStream> TcpStream::Connect_timeout(std::string domain, struct timeval)
+Result<TcpStream> TcpStream::Connect_timeout(std::string domain, struct timeval timeout)
 {
     std::size_t pos = domain.find(":"); // position of "live" in str
     if (pos > 0)
@@ -276,14 +276,14 @@ Result<TcpStream> TcpStream::Connect_timeout(std::string domain, struct timeval)
         std::cout << host << ' ' << ports << '\n';
         int port = atoi(ports.c_str());
 
-        auto tmp = TcpStream::Connect(Slice<const char>(host.c_str(),host.length()), port);
+        auto tmp = TcpStream::Connect_timeout(Slice<const char>(host.c_str(),host.length()), port, timeout);
 
         return tmp;
     }
     else
     {
         std::cout << " call 00000-1" << std::endl;
-        return TcpStream::Connect(Slice<const char>(domain.c_str(),domain.length()), 80);
+        return TcpStream::Connect_timeout(Slice<const char>(domain.c_str(),domain.length()), 80, timeout);
     }
 }
 #if 0
@@ -331,38 +331,67 @@ Result<TcpStream,int> TcpStream::connect (const char* host, size_t port)
 
 #endif
 
-Result<TcpStream> TcpStream::Connect_timeout(Slice<const char> host, size_t port, struct timeval)
+Result<TcpStream> TcpStream::Connect_timeout(Slice<const char> host, size_t port, struct timeval timeout)
 {
     SOCKET stream = INVALID_SOCKET;
     struct addrinfo hints;
     memset(&hints, 0, sizeof(hints));
-    hints.ai_flags = AI_NUMERICHOST;
-    hints.ai_family = AF_INET6;
+    hints.ai_flags =  AI_ALL; //AI_NUMERICHOST; //
+    hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */
     hints.ai_socktype = 0;
     hints.ai_protocol = 0;
     struct addrinfo *res = nullptr;
     //if (Utility::isipv6(host))
     //    hints.ai_flags |= AI_NUMERICHOST;
-    int n = getaddrinfo(host.addr, nullptr, &hints, &res);
+
+    std::cout << "Connect host :" << host.to_string() << "."<<std::endl;
+    int n = getaddrinfo(host.to_string().c_str(), nullptr, &hints, &res);
     if (!n)
     {
         for (struct addrinfo *ai = res ; ai != nullptr; ai = ai -> ai_next)
         {
-            auto ips =  ai -> ai_protocol == AF_INET ?
-                        SocketAddr((struct sockaddr_in*)ai->ai_addr) : SocketAddr((struct sockaddr_in6*)ai->ai_addr);
+            std::cout << "ip_addr :" <<  ai -> ai_protocol << "."<<std::endl;
 
-            ips.set_port(port);
+            struct sockaddr_in *sockaddr_ipv4 = (struct sockaddr_in *) ai->ai_addr;
+            printf("\tIPv4 address %s\n",
+                   inet_ntoa(sockaddr_ipv4->sin_addr) );
 
-            auto client = Connect(ips);
+            auto ip_addr =  SocketAddr(ai->ai_addr);
+
+            ip_addr.set_port(port);
+
+            std::cout << "ip_addr :" << ip_addr.to_string() << "." << std::endl;
+
+            auto client = Connect_timeout(ip_addr, timeout);
             if( client.is_err())
                 continue;
 
             stream = client.unwrap().take();
-
+            std::cout << "find "<<std::endl;
             break;
 
         }
         freeaddrinfo(res);
+    }
+    else
+    {
+        std::cout << "getaddrinfo error :" <<std::endl;
+        auto _ips =  SocketAddr::Create( host, port);
+        if( _ips.is_err()){
+            return Err(_ips.unwrap_err());
+        }
+
+        auto ips= _ips.unwrap();
+        ips.set_port(port);
+
+        std::cout << "ips :" << ips.to_string() << "."<<std::endl;
+
+        auto client = Connect_timeout(ips, timeout);
+        if( client.is_err())
+            return Err(_ips.unwrap_err());
+
+        stream = client.unwrap().take();
+
     }
 
     if( stream == INVALID_SOCKET)
@@ -375,9 +404,11 @@ Result<TcpStream> TcpStream::Connect_timeout(Slice<const char> host, size_t port
 Result<TcpStream> TcpStream::Connect_timeout(SocketAddr &addr, struct timeval timeout)
 {
     int family = addr.is_v4 ? AF_INET : AF_INET6;
-    auto client = Socket::Create(family, SOCK_STREAM, 0);
+    printf("family %d\n", family);
+    auto client = Socket::Create(family, SOCK_STREAM, IPPROTO_TCP);
     if( client.is_err())
     {
+        printf("Socket::Create error\n");
         return Err(client.unwrap_err());
     }
 
@@ -389,6 +420,8 @@ Result<TcpStream> TcpStream::Connect_timeout(SocketAddr &addr, struct timeval ti
     auto socket_fd = _client.get_socket( );
 
     _client.set_nodelay(1);
+
+    printf("time start %lu\n", time(nullptr));
     auto ret = _client.connect(addr);
     if( ret.is_err())
     {
@@ -408,11 +441,12 @@ Result<TcpStream> TcpStream::Connect_timeout(SocketAddr &addr, struct timeval ti
             }
         }
     }
+    printf("time end %lu\n", time(nullptr));
     _client.set_nodelay(0);
 
     if (0 == opt_val)
     {
-        Ok(TcpStream(_client.take()));
+        return Ok(TcpStream(_client.take()));
     }
     else{
         return Err(client.unwrap_err());
