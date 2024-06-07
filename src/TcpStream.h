@@ -25,18 +25,16 @@ public:
     static Result<TcpStream> Connect(Slice<const char> host, size_t port);
     static Result<TcpStream> Connect(SocketAddr &addr);
 
-    static Result<TcpStream, int> Connect_timeout(SocketAddr &addr, std::chrono::duration<int, std::ratio<1, 2>> timeout);
-
     static Result<TcpStream> Connect_timeout(std::string domain, struct timeval);
     static Result<TcpStream> Connect_timeout(Slice<const char> host, size_t port, struct timeval);
     static Result<TcpStream> Connect_timeout(SocketAddr &addr, struct timeval);
 
-    ~TcpStream();
-    TcpStream(int fd);
-    TcpStream(TcpStream &&other);
+    ~TcpStream() override;
+    explicit TcpStream(int fd);
+    TcpStream(TcpStream &&other) noexcept ;
     TcpStream(TcpStream &other) = delete;
     TcpStream(const TcpStream &other) = delete;
-    TcpStream &operator=(TcpStream &&other);
+    TcpStream &operator=(TcpStream &&other) noexcept ;
 
     size_t write(Slice<uint8_t> &slice);
     size_t read(Slice<char> &slice);

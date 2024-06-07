@@ -26,10 +26,10 @@ public:
     static Result<TcpListener> Bin(Slice<const char> host, uint16_t port = 80);
     static Result<TcpListener> Bin(std::string domain, uint16_t port = 80);
 
-    TcpListener(SOCKET fd);
+    explicit TcpListener(SOCKET fd);
     TcpListener(TcpListener &other) = delete;
     TcpListener(const TcpListener &other) = delete;
-    TcpListener(TcpListener &&other);
+    TcpListener(TcpListener &&other) noexcept ;
 
 
     Result<std::pair<TcpStream, SocketAddr>> accept();

@@ -66,16 +66,16 @@ public:
     static Result<SocketAddr> Create( Slice<const char> domain);
 
     SocketAddr();
-    SocketAddr(struct sockaddr_storage addr);
+    explicit SocketAddr(struct sockaddr_storage addr);
     //SocketAddr(struct sockaddr_storage& addr);
-    SocketAddr(struct sockaddr_storage* addr);
+    explicit SocketAddr(struct sockaddr_storage* addr);
     //SocketAddr(struct sockaddr *ai_addr );
-    SocketAddr(SocketAddrV4 v4);
-    SocketAddr(SocketAddrV6 v6);
+    explicit SocketAddr(SocketAddrV4 v4);
+    explicit SocketAddr(SocketAddrV6 v6);
     SocketAddr(const SocketAddr & addr);
-    SocketAddr(SocketAddr && addr);
+    SocketAddr(SocketAddr && addr) noexcept ;
 
-    SocketAddr& operator=(SocketAddr&& slice);
+    SocketAddr& operator=(SocketAddr&& slice) noexcept ;
     SocketAddr& operator=(const SocketAddr& slice);
 
     bool is_v4();

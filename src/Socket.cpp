@@ -16,13 +16,6 @@
 
 #include "IpAddr.h"
 
-#ifdef _DEBUG
-#define DEB(x) x; fflush(stderr);
-#else
-#define DEB(x)
-#endif
-
-
 // statics
 #ifdef _WIN32
 WSAInitializer Socket::m_winsock_init;
