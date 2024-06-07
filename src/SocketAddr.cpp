@@ -192,51 +192,56 @@ Result<SocketAddr> SocketAddr::Create( Slice<const char> domain)
 
 }
 
-SocketAddr::SocketAddr():is_v4(true)
+SocketAddr::SocketAddr()
 {
-    sin4.sin_family = AF_INET;
-    sin4.sin_addr.s_addr = 0;
-    sin4.sin_port = 0;
+    sin.ss_family = AF_UNSPEC;
 }
 
-SocketAddr::SocketAddr(struct sockaddr_in *s)
+SocketAddr::SocketAddr(struct sockaddr_storage addr)
 {
-    memcpy(&sin4, s, sizeof(struct sockaddr_in));
-    is_v4 = true;
+    sin.ss_family = addr.ss_family;
+
+    if (sin.ss_family == AF_INET )
+        memcpy(&sin4, &addr, sizeof(struct sockaddr_in));
+    else if( sin.ss_family == AF_INET6 )
+        memcpy(&sin4, &addr, sizeof(struct sockaddr_in6));
+
 }
 
-SocketAddr::SocketAddr(struct sockaddr_in6 *s)
-{
-    memcpy(&sin6, s, sizeof(struct sockaddr_in6));
-    is_v4 = false;
-}
+//SocketAddr::SocketAddr(struct sockaddr_storage &addr)
+//{
+//    sin.ss_family = addr.ss_family;
+//
+//    if (sin.ss_family == AF_INET )
+//        memcpy(&sin4, &addr, sizeof(struct sockaddr_in));
+//    else if( sin.ss_family == AF_INET6 )
+//        memcpy(&sin4, &addr, sizeof(struct sockaddr_in6));
+//
+//}
 
-SocketAddr::SocketAddr(struct sockaddr *ai_addr )
+SocketAddr::SocketAddr(struct sockaddr_storage *addr)
 {
-   if( ai_addr->sa_family == AF_INET) {
-       memcpy(&sin4, ai_addr, sizeof(struct sockaddr_in));
-       is_v4 = true;
-   }else{
-       memcpy(&sin6, ai_addr, sizeof(struct sockaddr_in6));
-       is_v4 = false;
-   }
+    sin.ss_family = addr->ss_family;
+
+    if (sin.ss_family == AF_INET )
+        memcpy(&sin4, addr, sizeof(struct sockaddr_in));
+    else if( sin.ss_family == AF_INET6 )
+        memcpy(&sin4, addr, sizeof(struct sockaddr_in6));
+
 }
 
 SocketAddr::SocketAddr(SocketAddrV4 v4)
 {
     memcpy(&sin4, &v4.sa, sizeof(struct sockaddr_in));
-    is_v4 = true;
 }
 SocketAddr::SocketAddr(SocketAddrV6 v6)
 {
     memcpy(&sin6, &v6.sa, sizeof(struct sockaddr_in6));
-    is_v4 = false;
 }
 
 SocketAddr::SocketAddr(const SocketAddr &addr)
 {
-    is_v4 = addr.is_v4;
-    if (is_v4)
+    if (addr.sin.ss_family == AF_INET)
     {
         memcpy(&sin4, &addr.sin4, sizeof(struct sockaddr_in));
     }
@@ -247,8 +252,7 @@ SocketAddr::SocketAddr(const SocketAddr &addr)
 }
 SocketAddr::SocketAddr(SocketAddr &&addr)
 {
-    this->is_v4 = addr.is_v4;
-    if (this->is_v4)
+    if (addr.sin.ss_family == AF_INET)
     {
         memcpy(&this->sin4, &addr.sin4, sizeof(struct sockaddr_in));
     }
@@ -260,8 +264,7 @@ SocketAddr::SocketAddr(SocketAddr &&addr)
 
 SocketAddr &SocketAddr::operator=(SocketAddr &&addr)
 {
-    is_v4 = addr.is_v4;
-    if (is_v4)
+    if (addr.sin.ss_family == AF_INET)
     {
         memcpy(&sin4, &addr.sin4, sizeof(struct sockaddr_in));
     }
@@ -273,8 +276,7 @@ SocketAddr &SocketAddr::operator=(SocketAddr &&addr)
 }
 SocketAddr &SocketAddr::operator=(const SocketAddr &addr)
 {
-    is_v4 = addr.is_v4;
-    if (is_v4)
+    if (addr.sin.ss_family == AF_INET)
     {
         memcpy(&sin4, &addr.sin4, sizeof(struct sockaddr_in));
     }
@@ -288,7 +290,7 @@ SocketAddr &SocketAddr::operator=(const SocketAddr &addr)
 
 IpAddr  SocketAddr::ipaddr()
 {
-    if (this->is_v4)
+    if ( sin.ss_family == AF_INET)
     {
         return IpAddr(this->sin4.sin_addr);
     }
@@ -300,7 +302,7 @@ IpAddr  SocketAddr::ipaddr()
 
 uint16_t SocketAddr::port( )
 {
-    if (this->is_v4)
+    if ( sin.ss_family == AF_INET)
     {
         return ntohs(this->sin4.sin_port);
     }
@@ -312,7 +314,7 @@ uint16_t SocketAddr::port( )
 
 void SocketAddr::set_port( uint16_t port)
 {
-    if (this->is_v4)
+    if ( sin.ss_family == AF_INET)
     {
         this->sin4.sin_port = htons(port);
     }
@@ -325,7 +327,7 @@ void SocketAddr::set_port( uint16_t port)
 std::string SocketAddr::to_string()
 {
     char ip_str[INET6_ADDRSTRLEN] = {0};
-    if (this->is_v4)
+    if ( sin.ss_family == AF_INET)
     {
         const void *src = &(this->sin4.sin_addr);
         const char *str = inet_ntop(AF_INET, src, ip_str, INET6_ADDRSTRLEN); // 将数值格式转化为点分十进制的ip地址格式
@@ -334,8 +336,6 @@ std::string SocketAddr::to_string()
         }
 
         return std::string(ip_str) + ":" + std::to_string(this->port());
-
-        // return std::string(inet_ntoa(this->sa.sin4.sin_addr)) + ":" + std::to_string(this->sa.sin4.sin_port);
     }
     else
     {
@@ -347,4 +347,14 @@ std::string SocketAddr::to_string()
 
         return std::string(ip_str) + ":" + std::to_string(this->port());
     }
+}
+
+bool SocketAddr::is_v4()
+{
+    return  sin.ss_family == AF_INET;
+}
+
+bool SocketAddr::is_v6()
+{
+    return  sin.ss_family == AF_INET6;
 }

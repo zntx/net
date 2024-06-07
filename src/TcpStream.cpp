@@ -98,7 +98,7 @@ Result<TcpStream> TcpStream::Connect(Slice<const char> host, size_t port)
             printf("\tIPv4 address %s\n",
                    inet_ntoa(sockaddr_ipv4->sin_addr) );
 
-            auto ip_addr =  SocketAddr(ai->ai_addr);
+            auto ip_addr =  SocketAddr((struct sockaddr_storage*)ai->ai_addr);
 
             ip_addr.set_port(port);
 
@@ -147,7 +147,7 @@ Result<TcpStream> TcpStream::Connect(SocketAddr &addr)
 {
     SOCKET stream = INVALID_SOCKET;
 
-    int family = addr.is_v4 ? AF_INET : AF_INET6;
+    int family = addr.is_v4() ? AF_INET : AF_INET6;
     printf("family %d\n", family);
     auto client = Socket::Create(family, SOCK_STREAM, IPPROTO_TCP);
     if( client.is_err())
@@ -201,7 +201,7 @@ Result<TcpStream> Connect_timeout(SocketAddr &addr, std::chrono::duration<int, s
     }
 
     int ret_val = -1; // 接收函数返回
-    if (addr.is_v4)
+    if (addr.is_v4())
     {
         ret_val = connect(sockfd, (struct sockaddr *)&addr.sin4, (socklen_t)sizeof(struct sockaddr_in));
     }
@@ -356,7 +356,7 @@ Result<TcpStream> TcpStream::Connect_timeout(Slice<const char> host, size_t port
             printf("\tIPv4 address %s\n",
                    inet_ntoa(sockaddr_ipv4->sin_addr) );
 
-            auto ip_addr =  SocketAddr(ai->ai_addr);
+            auto ip_addr =  SocketAddr((struct sockaddr_storage*)ai->ai_addr);
 
             ip_addr.set_port(port);
 
@@ -403,7 +403,7 @@ Result<TcpStream> TcpStream::Connect_timeout(Slice<const char> host, size_t port
 
 Result<TcpStream> TcpStream::Connect_timeout(SocketAddr &addr, struct timeval timeout)
 {
-    int family = addr.is_v4 ? AF_INET : AF_INET6;
+    int family = addr.is_v4() ? AF_INET : AF_INET6;
     printf("family %d\n", family);
     auto client = Socket::Create(family, SOCK_STREAM, IPPROTO_TCP);
     if( client.is_err())

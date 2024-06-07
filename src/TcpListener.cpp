@@ -53,7 +53,7 @@ Result<TcpListener> TcpListener::Bin(Slice<const char> host, uint16_t port)
     {
         for (struct addrinfo *p = res; p != NULL; p = p->ai_next)
         {
-            auto ip_addr =  SocketAddr(p->ai_addr);
+            auto ip_addr =  SocketAddr((struct sockaddr_storage*)p->ai_addr);
 
             ip_addr.set_port(port);
 

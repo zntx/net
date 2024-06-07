@@ -48,9 +48,10 @@ public:
 
 class SocketAddr{
 public:
-    bool is_v4;
-
+//    bool is_v4;
+//
     union {
+        struct sockaddr_storage sin;
         struct sockaddr_in sin4;
         struct sockaddr_in6 sin6;
     };
@@ -65,10 +66,10 @@ public:
     static Result<SocketAddr> Create( Slice<const char> domain);
 
     SocketAddr();
-    SocketAddr(struct sockaddr_storage s);
-    SocketAddr(struct sockaddr_in *s);
-    SocketAddr(struct sockaddr_in6 *s);
-    SocketAddr(struct sockaddr *ai_addr );
+    SocketAddr(struct sockaddr_storage addr);
+    //SocketAddr(struct sockaddr_storage& addr);
+    SocketAddr(struct sockaddr_storage* addr);
+    //SocketAddr(struct sockaddr *ai_addr );
     SocketAddr(SocketAddrV4 v4);
     SocketAddr(SocketAddrV6 v6);
     SocketAddr(const SocketAddr & addr);
@@ -77,6 +78,8 @@ public:
     SocketAddr& operator=(SocketAddr&& slice);
     SocketAddr& operator=(const SocketAddr& slice);
 
+    bool is_v4();
+    bool is_v6();
     IpAddr ipaddr();
     uint16_t port( );
     void set_port( uint16_t port);

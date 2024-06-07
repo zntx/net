@@ -174,7 +174,7 @@ Result<UdpSocket> Connect_timeout(SocketAddr &addr, std::chrono::duration<int, s
     }
 
     int ret_val = -1; // 接收函数返回
-    if (addr.is_v4)
+    if (addr.is_v4())
     {
         ret_val = connect(sockfd, (struct sockaddr *)&addr.sin4, (socklen_t)sizeof(struct sockaddr_in));
     }

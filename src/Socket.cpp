@@ -177,13 +177,11 @@ Result<void> Socket::connect(SocketAddr addr)
 {
     int ret = 0;
 
-
-
-    if (addr.is_v4)
+    if (addr.is_v4())
     {
         ret = ::connect(fd, (struct sockaddr *)&addr.sin4, (socklen_t)sizeof(struct sockaddr_in));
         printf("fd %d\n", fd);
-        printf("addr.is_v4 %d\n", addr.is_v4);
+        printf("addr.is_v4 %d\n", addr.is_v4());
         struct sockaddr_in ss ;
 //        ss.sin_family = AF_INET;
 //        ss.sin_addr.S_un.S_addr = inet_addr("10.112.219.204");
@@ -215,7 +213,7 @@ Result<void> Socket::bind( SocketAddr& addr)
 {
     int ret_value = -1;
 
-    if(addr.is_v4)
+    if(addr.is_v4())
     {
         ret_value = ::bind(fd,(struct sockaddr *)&addr.sin4, sizeof(struct sockaddr_in));
     }
