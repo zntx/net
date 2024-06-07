@@ -100,7 +100,7 @@ TcpListener::TcpListener(TcpListener &&other) : Socket(other.fd)
     other.fd  = -1;
 }
 
-Result<TcpStream> TcpListener::accept()
+Result<std::pair<TcpStream, SocketAddr>> TcpListener::accept()
 {
     struct sockaddr_storage clent_addr;
     int addr_size = sizeof(struct sockaddr_storage);
@@ -112,10 +112,10 @@ Result<TcpStream> TcpListener::accept()
         return Err(std::string(StrError(Errno)));
     }
 
-    return Ok(TcpStream(connect_fd));
+    return Ok(std::pair<TcpStream, SocketAddr>{TcpStream(connect_fd), SocketAddr(clent_addr)});
 }
 
-Result<TcpStream> TcpListener::accept_timeout(uint32_t msecond)
+Result<std::pair<TcpStream, SocketAddr>> TcpListener::accept_timeout(uint32_t msecond)
 {
     /* 如果有超时时间，调用select判断在超时时间内，是否有数据传输进来 */
     struct timeval timeout;
@@ -164,5 +164,5 @@ Result<TcpStream> TcpListener::accept_timeout(uint32_t msecond)
         return Err(std::string(StrError(Errno)));
     }
 
-    return Ok(TcpStream(connect_fd));
+    return Ok(std::pair<TcpStream, SocketAddr>{TcpStream(connect_fd), SocketAddr(clent_addr)});
 }

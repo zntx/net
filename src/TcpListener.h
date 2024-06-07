@@ -6,6 +6,7 @@
 #define NET_TCPLISTENER_H
 
 #include <chrono>
+
 #include <string>
 #include <stdint.h>
 #include "Slice.h"
@@ -31,9 +32,9 @@ public:
     TcpListener(TcpListener &&other);
 
 
-    Result<TcpStream> accept();
+    Result<std::pair<TcpStream, SocketAddr>> accept();
 
-    Result<TcpStream> accept_timeout(uint32_t msecond);
+    Result<std::pair<TcpStream, SocketAddr>> accept_timeout(uint32_t msecond);
 
 };
 

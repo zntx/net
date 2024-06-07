@@ -65,6 +65,7 @@ public:
     static Result<SocketAddr> Create( Slice<const char> domain);
 
     SocketAddr();
+    SocketAddr(struct sockaddr_storage s);
     SocketAddr(struct sockaddr_in *s);
     SocketAddr(struct sockaddr_in6 *s);
     SocketAddr(struct sockaddr *ai_addr );
