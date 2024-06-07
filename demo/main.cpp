@@ -75,24 +75,39 @@ int test_server(int agrc, char *agrv[])
 
     printf(" listener %d\n", listener.get_socket());
 
-    auto stream_pack = listener.accept();
-    if (stream_pack.is_err())
-    {
-        printf("Accept fail %d \n", stream_pack.unwrap_err().c_str());
-        return 1;
+//    auto stream_pack = listener.accept();
+//    if (stream_pack.is_err())
+//    {
+//        printf("Accept fail %d \n", stream_pack.unwrap_err().c_str());
+//        return 1;
+//    }
+
+
+    while(1) {
+        auto stream_pack = listener.accept_timeout(10*1000);
+        if (stream_pack.is_err())
+        {
+            printf("Accept fail %s \n", stream_pack.unwrap_err().c_str());
+        }
+        else {
+            printf("Accept OK  \n" );
+            break;
+
+        }
+
     }
 
-    TcpStream stream = stream_pack.unwrap();
-
-    char data[300] = "0";
-    Slice<uint8_t> slice((uint8_t *)&data[0], 300);
-
-    std::size_t len = stream.read(slice);
-
-    printf("read size %lu\n", len);
-    printf("read  %s\n", slice.addr);
-
-    stream.write(slice);
+//    TcpStream stream = stream_pack.unwrap();
+//
+//    char data[300] = "0";
+//    Slice<uint8_t> slice((uint8_t *)&data[0], 300);
+//
+//    std::size_t len = stream.read(slice);
+//
+//    printf("read size %lu\n", len);
+//    printf("read  %s\n", slice.addr);
+//
+//    stream.write(slice);
 
     return 1;
 }

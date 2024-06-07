@@ -115,56 +115,52 @@ Result<TcpStream> TcpListener::accept()
     return Ok(TcpStream(connect_fd));
 }
 
-Result<TcpStream> TcpListener::accepT_timeout(uint32_t msecond)
+Result<TcpStream> TcpListener::accept_timeout(uint32_t msecond)
 {
     /* 如果有超时时间，调用select判断在超时时间内，是否有数据传输进来 */
     struct timeval timeout;
-    memset(&timeout, 0, sizeof(timeout));
     timeout.tv_sec = msecond / 1000;
     timeout.tv_usec = (msecond % 1000) * 1000;
 
     fd_set fdset;
     FD_ZERO(&fdset);
-    FD_SET(this->fd, &fdset);
+    FD_SET(fd, &fdset);
 
-    do
-    {
-        int ret = ::select(this->fd + 1, &fdset, NULL, NULL, &timeout);
-        /* 在指定时间内，若检测到??口可读，先不做???理，等待后??使用accept接收数据，否则直接返?? */
-        if (ret > 0)
-        {
-            if (FD_ISSET(this->fd, &fdset))
-            {
-                ;
-            }
-            else
-            {
+    do {
+        int ret = ::select(fd + 1, &fdset, nullptr, nullptr, &timeout);
+
+        /* 在指定时间内，若检测到端口可读，先不做处理，等待后续使用accept接收数据，否则直接返回 */
+        if (ret > 0) {
+            if (FD_ISSET(fd, &fdset)) {
+                break;
+            } else {
                 return Err(std::string(StrError(Errno)));
             }
-        }
-        else if (0 == ret) // select超时
+        } else if (0 == ret)
         {
-            // NETBASE_ERR("time out.\n");
-            return Err(std::string(StrError(Errno)));
-        }
-        else if (errno == EINTR)
-        {
-            continue; // goto retry;
-        }
-        else // select错???
-        {
-            // NETBASE_ERR( "select err.\n");
-            return Err(std::string(StrError(Errno)));
-        }
-    } while (0);
+            return Err(std::string("time out"));
+        } else {
+#ifdef  __WINDOWS__
+            if( Errno == WSAEWOULDBLOCK)
+#else
+                if( Errno == EINTR)
+#endif
+            {
+                continue;
+            }
 
-    struct sockaddr_in sin4;  /**< IPV4 地址*/
-    struct sockaddr_in6 sin6; /**< IPV6 地址*/
-    int addr_size = sizeof(struct sockaddr_in);
-    int connect_fd = ::accept(this->fd, (struct sockaddr *)&(sin4), (socklen_t *)&addr_size);
+            return Err(std::string(StrError(Errno)));
+        }
+    }while(0);
+
+
+    struct sockaddr_storage clent_addr;
+    int addr_size = sizeof(struct sockaddr_storage);
+
+    int connect_fd = ::accept(this->fd, (struct sockaddr *)&clent_addr, (socklen_t *)&addr_size);
     if (connect_fd < 0)
     {
-        // NETBASE_ERR("socket_accept_with_timeout failed: errno %d\n", errno);
+        fprintf(stdout, "%s:%d accept failed: [errno  \n", __FILE__, __LINE__);
         return Err(std::string(StrError(Errno)));
     }
 

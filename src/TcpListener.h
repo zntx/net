@@ -33,7 +33,7 @@ public:
 
     Result<TcpStream> accept();
 
-    Result<TcpStream> accepT_timeout(uint32_t msecond);
+    Result<TcpStream> accept_timeout(uint32_t msecond);
 
 };
 
