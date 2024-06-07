@@ -11,21 +11,21 @@
 Result<TcpStream> TcpStream::Connect(std::string domain)
 {
     std::size_t pos = domain.find(":"); // position of "live" in str
-    if (pos > 0)
+    if (pos != string::npos)
     {
         std::string host = domain.substr(0, pos);   // get from "live" to the end
         std::string ports = domain.substr(pos + 1); // get from "live" to the end
-        std::cout << host << ' ' << ports << '\n';
+
         int port = atoi(ports.c_str());
         
-        auto tmp = TcpStream::Connect(host.c_str(), port);
+        auto tmp = TcpStream::Connect(Slice<const char>(host.c_str(),host.length()), port);
         
         return tmp;
     }
     else
     {
         std::cout << " call 00000-1" << std::endl;
-        return TcpStream::Connect(domain.c_str(), 80);
+        return TcpStream::Connect(Slice<const char>(domain.c_str(),domain.length()), 80);
     }
 }
 #if 0
@@ -73,79 +73,101 @@ Result<TcpStream,int> TcpStream::connect (const char* host, size_t port)
 
 #endif
 
-Result<TcpStream> TcpStream::Connect(const char *host, size_t port)
+Result<TcpStream> TcpStream::Connect(Slice<const char> host, size_t port)
 {
-    char host_ip[50] = {0};
+    SOCKET stream = INVALID_SOCKET;
+    struct addrinfo hints;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_flags =  AI_ALL; //AI_NUMERICHOST; //
+    hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */
+    hints.ai_socktype = 0;
+    hints.ai_protocol = 0;
+    struct addrinfo *res = nullptr;
+    //if (Utility::isipv6(host))
+    //    hints.ai_flags |= AI_NUMERICHOST;
 
-    struct hostent *_hostent = gethostbyname(host);
-    if (_hostent != nullptr)
+    std::cout << "Connect host :" << host.to_string() << "."<<std::endl;
+    int n = getaddrinfo(host.to_string().c_str(), nullptr, &hints, &res);
+    if (!n)
     {
-        for (int i = 0; _hostent->h_addr_list[i] != NULL; i++)
+        for (struct addrinfo *ai = res ; ai != nullptr; ai = ai -> ai_next)
         {
-            char *ipaddr = inet_ntoa(*((struct in_addr *)_hostent->h_addr_list[i]));
-            if (strlen(host_ip) == 0 && ipaddr != nullptr)
-                strncpy(host_ip, ipaddr, strlen(ipaddr));
-            printf("ip addr %d: %s\n", i + 1, ipaddr);
+            std::cout << "ip_addr :" <<  ai -> ai_protocol << "."<<std::endl;
+
+            struct sockaddr_in *sockaddr_ipv4 = (struct sockaddr_in *) ai->ai_addr;
+            printf("\tIPv4 address %s\n",
+                   inet_ntoa(sockaddr_ipv4->sin_addr) );
+
+            auto ip_addr =  SocketAddr(ai->ai_addr);
+
+            ip_addr.set_port(port);
+
+            std::cout << "ip_addr :" << ip_addr.to_string() << "." << std::endl;
+
+            auto client = Connect(ip_addr);
+            if( client.is_err())
+                continue;
+
+            stream = client.unwrap().take();
+            std::cout << "find "<<std::endl;
+            break;
+
         }
-    }
-    if (strlen(host_ip) == 0)
-        strncpy(host_ip, host, strlen(host));
-
-    printf("%s:%d %s()", __FILE__, __LINE__, __func__);
-    printf("host addr %s\n", host);
-    // 判断IP 是V4还是V6
-   auto r_addr = IpAddr::Create(host_ip);
-    if (r_addr.is_err())
-    {
-        return Err(r_addr.unwrap_err());
-    }
-
-    IpAddr addr = r_addr.unwrap();
-
-    int strem = 0;
-    if (addr.is_v4)
-    {
-        strem = socket(AF_INET, SOCK_STREAM, 0);
-        if (strem < 0)
-        {
-            printf("%s:%d %s()", __FILE__, __LINE__, __func__);
-            perror("socket error\n");
-            return Err(std::string(StrError(Errno)));
-        }
-
-        struct sockaddr_in server_sockaddr;
-        server_sockaddr.sin_family = AF_INET;
-        server_sockaddr.sin_port = htons(port);
-        server_sockaddr.sin_addr.s_addr = inet_addr(host_ip);
-
-        int ret = connect(strem, (struct sockaddr *)&server_sockaddr, sizeof(server_sockaddr));
-        if (ret < 0)
-        {
-            perror("connect");
-            return Err(std::string(StrError(Errno)));
-        }
+        freeaddrinfo(res);
     }
     else
     {
-        strem = socket(AF_INET6, SOCK_STREAM, 0);
-        if (strem < 0)
-        {
-            perror("setsockopet error\n");
-            return Err(std::string(StrError(Errno)));
+        std::cout << "getaddrinfo error :" <<std::endl;
+        auto _ips =  SocketAddr::Create( host, port);
+        if( _ips.is_err()){
+            return Err(_ips.unwrap_err());
         }
 
-        struct sockaddr_in6 server_sockaddr6;
-        server_sockaddr6.sin6_family = AF_INET6;
-        int ret = connect(strem, (struct sockaddr *)&server_sockaddr6, (socklen_t)sizeof(struct sockaddr_in6));
-        if (ret < 0)
-        {
-            perror("connect");
-            return Err(std::string(StrError(Errno)));
-        }
+        auto ips= _ips.unwrap();
+        ips.set_port(port);
+
+        std::cout << "ips :" << ips.to_string() << "."<<std::endl;
+
+        auto client = Connect(ips);
+        if( client.is_err())
+            return Err(_ips.unwrap_err());
+
+        stream = client.unwrap().take();
+
     }
-    std::cout << " call 111111" << std::endl;
-    return Ok(TcpStream(strem));
+
+    if( stream == INVALID_SOCKET)
+        return Err(std::string(StrError(Errno)));
+
+    return Ok(TcpStream(stream));
 }
+
+
+Result<TcpStream> TcpStream::Connect(SocketAddr &addr)
+{
+    SOCKET stream = INVALID_SOCKET;
+
+    int family = addr.is_v4 ? AF_INET : AF_INET6;
+    printf("family %d\n", family);
+    auto client = Socket::Create(family, SOCK_STREAM, IPPROTO_TCP);
+    if( client.is_err())
+    {
+        printf("Socket::Create error\n");
+        return Err(client.unwrap_err());
+    }
+
+    auto _client  = client.unwrap();
+
+    auto ret = _client.connect(addr);
+
+    if( ret.is_err())
+    {
+        return Err(ret.unwrap_err());
+    }
+
+    return Ok(TcpStream(_client.take()));
+}
+
 
 Result<TcpStream> Connect_timeout(SocketAddr &addr, std::chrono::duration<int, std::ratio<1, 2>> timeout)
 {
@@ -187,7 +209,7 @@ Result<TcpStream> Connect_timeout(SocketAddr &addr, std::chrono::duration<int, s
     {
         ret_val = connect(sockfd, (struct sockaddr *)&addr.sin6, (socklen_t)sizeof(struct sockaddr_in6));
     }
-    if (-1 == ret_val)
+    if (0 != ret_val)
     {
         if (EINPROGRESS == errno)
         {
@@ -242,11 +264,170 @@ Result<TcpStream> Connect_timeout(SocketAddr &addr, std::chrono::duration<int, s
     return Ok(TcpStream(sockfd));
 }
 
+
+
+Result<TcpStream> TcpStream::Connect_timeout(std::string domain, struct timeval)
+{
+    std::size_t pos = domain.find(":"); // position of "live" in str
+    if (pos > 0)
+    {
+        std::string host = domain.substr(0, pos);   // get from "live" to the end
+        std::string ports = domain.substr(pos + 1); // get from "live" to the end
+        std::cout << host << ' ' << ports << '\n';
+        int port = atoi(ports.c_str());
+
+        auto tmp = TcpStream::Connect(Slice<const char>(host.c_str(),host.length()), port);
+
+        return tmp;
+    }
+    else
+    {
+        std::cout << " call 00000-1" << std::endl;
+        return TcpStream::Connect(Slice<const char>(domain.c_str(),domain.length()), 80);
+    }
+}
+#if 0
+
+Result<TcpStream,int> TcpStream::connect (const char* host, size_t port)
+{
+
+    TcpStream strem;
+    ///定义sockfd
+    strem.fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (strem.fd < 0)
+    {
+        perror("setsockopet error\n");
+        return Err(errno);
+    }
+
+    int reuse = 0;
+    if (setsockopt(strem.fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0)
+    {
+        perror("setsockopet error\n");
+        return Err(errno);
+    }
+    ///定义sockaddr_in
+    struct sockaddr_in server_sockaddr;
+    server_sockaddr.sin_family = AF_INET;
+    server_sockaddr.sin_port = htons(port);
+    server_sockaddr.sin_addr.s_addr = inet_addr(host);
+
+    ///bind，成功返??0，出错返??-1
+    if(bind( strem.fd, (struct sockaddr *)&server_sockaddr, sizeof(server_sockaddr)) ==-1)
+    {
+        perror("bind");
+        return Err(errno);
+    }
+
+    ///bind，成功返回0，出错返回-1
+    if(listen(strem.fd, 24) == -1)
+    {
+        perror("listen");
+        exit(1);
+    }
+
+    return Ok(strem);
+}
+
+#endif
+
+Result<TcpStream> TcpStream::Connect_timeout(Slice<const char> host, size_t port, struct timeval)
+{
+    SOCKET stream = INVALID_SOCKET;
+    struct addrinfo hints;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_flags = AI_NUMERICHOST;
+    hints.ai_family = AF_INET6;
+    hints.ai_socktype = 0;
+    hints.ai_protocol = 0;
+    struct addrinfo *res = nullptr;
+    //if (Utility::isipv6(host))
+    //    hints.ai_flags |= AI_NUMERICHOST;
+    int n = getaddrinfo(host.addr, nullptr, &hints, &res);
+    if (!n)
+    {
+        for (struct addrinfo *ai = res ; ai != nullptr; ai = ai -> ai_next)
+        {
+            auto ips =  ai -> ai_protocol == AF_INET ?
+                        SocketAddr((struct sockaddr_in*)ai->ai_addr) : SocketAddr((struct sockaddr_in6*)ai->ai_addr);
+
+            ips.set_port(port);
+
+            auto client = Connect(ips);
+            if( client.is_err())
+                continue;
+
+            stream = client.unwrap().take();
+
+            break;
+
+        }
+        freeaddrinfo(res);
+    }
+
+    if( stream == INVALID_SOCKET)
+        return Err(std::string(StrError(Errno)));
+
+    return Ok(TcpStream(stream));
+}
+
+
+Result<TcpStream> TcpStream::Connect_timeout(SocketAddr &addr, struct timeval timeout)
+{
+    int family = addr.is_v4 ? AF_INET : AF_INET6;
+    auto client = Socket::Create(family, SOCK_STREAM, 0);
+    if( client.is_err())
+    {
+        return Err(client.unwrap_err());
+    }
+
+    auto _client  = client.unwrap();
+
+    // 清除错误
+    int opt_val = 0;
+    int length = sizeof(opt_val);
+    auto socket_fd = _client.get_socket( );
+
+    _client.set_nodelay(1);
+    auto ret = _client.connect(addr);
+    if( ret.is_err())
+    {
+#ifdef  __WINDOWS__
+        if( Errno == WSAEWOULDBLOCK)
+#else
+        if( Errno == EINPROGRESS)
+#endif
+        {
+            fd_set set;
+            FD_ZERO(&set);
+            FD_SET(socket_fd, &set);
+
+            if(::select(socket_fd + 1, NULL, &set, NULL, &timeout) > 0)
+            {
+                getsockopt(socket_fd, SOL_SOCKET, SO_ERROR, (char*)&opt_val, (socklen_t*)&length);
+            }
+        }
+    }
+    _client.set_nodelay(0);
+
+    if (0 == opt_val)
+    {
+        Ok(TcpStream(_client.take()));
+    }
+    else{
+        return Err(client.unwrap_err());
+    }
+}
+
+
 TcpStream::~TcpStream()
 {
-    std::cout << "~TcpStream(): call tcp close() " << this->fd << std::endl;
-    if (this->fd > 0)
+    if (this->fd != INVALID_SOCKET) {
+        std::cout << "~TcpStream():  close() " << this->fd << std::endl;
         close(this->fd);
+
+        this->fd= INVALID_SOCKET;
+    }
 }
 
 TcpStream::TcpStream(int fd)
@@ -257,14 +438,14 @@ TcpStream::TcpStream(int fd)
 TcpStream::TcpStream(TcpStream &&other)
 {
     this->fd = other.fd;
-    other.fd = -1;
+    other.fd = INVALID_SOCKET;
 }
 
-TcpStream::TcpStream(const TcpStream &other)
-{
-    this->fd = other.fd;
-    // other.fd = -1;
-}
+//TcpStream::TcpStream(const TcpStream &other)
+//{
+//    this->fd = other.fd;
+//    // other.fd = -1;
+//}
 
 
 TcpStream &TcpStream::operator=(TcpStream &&other)
@@ -280,170 +461,21 @@ size_t TcpStream::read(Slice<uint8_t> &slice)
     return recv(this->fd, (char*)slice.addr, slice.len, 0);
 }
 
+size_t TcpStream::read(Slice<char> &slice)
+{
+    return recv(this->fd, slice.addr, slice.len, 0);
+}
+
 size_t TcpStream::write(Slice<uint8_t> &slice)
 {
     return send(this->fd,  (char*)slice.addr, slice.len, 0);
 }
 
-Result<SocketAddr, int> TcpStream::peer_addr()
-{
-    struct sockaddr_in peerAddr;
-
-    int32_t peerLen = sizeof(peerAddr);
-    if (getpeername(this->fd, (struct sockaddr *)&peerAddr, &peerLen) == -1)
-    {
-        printf("getpeername error\n");
-        // string str = strerror(errno);
-        // return Err(str);
-    }
-
-    //SocketAddr addr_ = SocketAddr(SocketAddrV4(peerAddr));
-    return Ok(SocketAddr(SocketAddrV4(peerAddr)));
-}
-
-Result<SocketAddr, int> TcpStream::local_addr()
-{
-    struct sockaddr_in connectedAddr;
-    int32_t len = sizeof(connectedAddr);
-    if (getsockname(this->fd, (struct sockaddr *)&connectedAddr, &len) == -1)
-    {
-        printf("getsockname error\n");
-        // string str = strerror(errno);
-        // return Err(str);
-    }
-
-    // SocketAddr addr(SocketAddrV4(connectedAddr));
-    return Ok(SocketAddr(SocketAddrV4(connectedAddr)));
-}
-
-// Result<void, string> TcpStream::set_read_timeout(struct timeval *tv)
-// {
-//     if( tv != NULL) {
-//         socklen_t optlen = sizeof(struct timeval);
-//         //getsockopt(this->fd, SOL_SOCKET,SO_RCVTIMEO, &tv, &optlen);
-//         setsockopt(this->fd, SOL_SOCKET, SO_RCVTIMEO, tv, optlen);
-//     }
-//     else
-//     {
-//         struct timeval tv;
-//         tv.tv_sec = 10; tv.tv_usec = 0;
-//         socklen_t optlen = sizeof(struct timeval);
-//         //getsockopt(this->fd, SOL_SOCKET,SO_RCVTIMEO, &tv, &optlen);
-//         setsockopt(this->fd, SOL_SOCKET, SO_RCVTIMEO, &tv, optlen);
-//     }
-
-//     return Ok();
-// }
-
-// Result<void, string> TcpStream::set_write_timeout(struct timeval *tv)
-// {
-//     if( tv != NULL) {
-//         socklen_t optlen = sizeof(struct timeval);
-//         //getsockopt(this->fd, SOL_SOCKET,SO_RCVTIMEO, &tv, &optlen);
-//         setsockopt(this->fd, SOL_SOCKET, SO_SNDTIMEO, tv, optlen);
-//     }
-//     else
-//     {
-//         struct timeval tv;
-//         tv.tv_sec = 10; tv.tv_usec = 0;
-//         socklen_t optlen = sizeof(struct timeval);
-//         //getsockopt(this->fd, SOL_SOCKET,SO_RCVTIMEO, &tv, &optlen);
-//         setsockopt(this->fd, SOL_SOCKET, SO_SNDTIMEO, &tv, optlen);
-//     }
-
-//     return Ok();
-// }
-
-Result<Option<struct timeval>> TcpStream::read_timeout()
-{
-
-    struct timeval tv;
-    tv.tv_sec = 10;
-    tv.tv_usec = 0;
-    socklen_t optlen = sizeof(struct timeval);
-    // getsockopt(this->fd, SOL_SOCKET,SO_RCVTIMEO, &tv, &optlen);
-    setsockopt(this->fd, SOL_SOCKET, SO_RCVTIMEO, (char*)&tv, optlen);
-
-    Option<struct timeval> ret = Some(tv);
-    return Ok(std::move(ret));
-}
-Result<Option<struct timeval>> TcpStream::write_timeout()
-{
-    struct timeval tv;
-    tv.tv_sec = 10;
-    tv.tv_usec = 0;
-    socklen_t optlen = sizeof(struct timeval);
-    // getsockopt(this->fd, SOL_SOCKET,SO_RCVTIMEO, &tv, &optlen);
-    setsockopt(this->fd, SOL_SOCKET, SO_SNDTIMEO, (char*)&tv, optlen);
-
-    Option<struct timeval> ret = Some(tv);
-    return Ok(std::move(ret));
-}
-
-// Result<void, string> TcpStream::set_nodelay(bool _nodelay  )
-// {
-//     int nodelay = 1;
-//     int cork = 1;
-
-//     if( _nodelay) {
-//         nodelay = 1;
-//         cork = 1;
-//     }else {
-//         nodelay = 0;
-//         cork =0;
-//     }
-
-// 	int rc = setsockopt(this->fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(int));
-// 	rc = setsockopt(this->fd, IPPROTO_TCP, TCP_CORK, &cork, sizeof(int));
-
-//     return Ok();
-// }
-
-Result<bool> TcpStream::nodelay()
-{
-    char nodelay = 0;
-    int rc = setsockopt(this->fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(int));
-
-    if (nodelay)
-        return Ok(true);
-    else
-        return Ok(false);
-}
-
-// Result<void, string> TcpStream::set_nonblocking(bool nonblocking)
-// {
-//     int block_or_not = 1; // 设置非阻
-//     if(nonblocking)
-//         block_or_not = 1;
-//     else
-//         block_or_not = 0;
-// 	if( ioctl(this->fd, FIONBIO, &block_or_not) != 0)
-// 	{
-// 		string str(strerror(errno));
-//         return Err(str);
-// 	}
-//     return Ok();
-// }
-
-// Result<void, string> TcpStream::set_ttl(uint32_t ttl  )
-// {
-
-//     return Ok();
-// }
-Result<uint32_t> TcpStream::ttl()
-{
-    uint32_t x = 3;
-    return Ok(std::move(x));
-}
-
 Result<TcpListener> TcpListener::bin(const char *host_name, uint16_t port)
 {
     struct addrinfo hints, *result;
-    // char ipstr[INET6_ADDRSTRLEN];
-
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC; // AF_INET6;  
-
 
     int status = getaddrinfo(host_name, NULL, &hints, &result);
     if (status != 0)
@@ -570,8 +602,6 @@ TcpListener::TcpListener(TcpListener &&other) : TcpStream(other.fd)
     other.fd  = -1;
 }
 
-
-
 Result<TcpStream> TcpListener::Accept()
 {
     struct sockaddr_in6 clent_addr;
@@ -601,7 +631,7 @@ Result<TcpStream> TcpListener::AccepT_timeout(uint32_t msecond)
 
     do
     {
-        int ret = select(this->fd + 1, &fdset, NULL, NULL, &timeout);
+        int ret = ::select(this->fd + 1, &fdset, NULL, NULL, &timeout);
         /* 在指定时间内，若检测到??口可读，先不做???理，等待后??使用accept接收数据，否则直接返?? */
         if (ret > 0)
         {

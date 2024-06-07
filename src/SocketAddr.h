@@ -27,7 +27,7 @@ public:
     uint16_t port();
     void set_port(uint16_t port);
     std::string to_string();
-    
+
 };
 
 
@@ -41,6 +41,7 @@ public:
     SocketAddrV6(Ipv6Addr ip,  uint16_t port);
 
     uint16_t port();
+    IpAddr ipaddr();
     std::string to_string();
 
 };
@@ -64,6 +65,9 @@ public:
     static Result<SocketAddr> Create( Slice<const char> domain);
 
     SocketAddr();
+    SocketAddr(struct sockaddr_in *s);
+    SocketAddr(struct sockaddr_in6 *s);
+    SocketAddr(struct sockaddr *ai_addr );
     SocketAddr(SocketAddrV4 v4);
     SocketAddr(SocketAddrV6 v6);
     SocketAddr(const SocketAddr & addr);
@@ -72,7 +76,9 @@ public:
     SocketAddr& operator=(SocketAddr&& slice);
     SocketAddr& operator=(const SocketAddr& slice);
 
+    IpAddr ipaddr();
     uint16_t port( );
+    void set_port( uint16_t port);
 
     std::string to_string();
 };

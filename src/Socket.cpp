@@ -28,9 +28,6 @@
 WSAInitializer Socket::m_winsock_init;
 #endif
 
-
-
-
 // only to be included in win32 projects
 const char *StrError(int x)
 {
@@ -95,6 +92,12 @@ Socket::Socket(SOCKET _soket )
 {
 }
 
+Socket::Socket( Socket&&  soc)
+{
+    fd = soc.fd;
+    soc.fd = INVALID_SOCKET;
+}
+
 
 Socket::~Socket()
 {
@@ -108,12 +111,24 @@ Socket::~Socket()
     if ((n = closesocket(fd)) == -1)
     {
         // failed...
-        //fprintf(stdout, "close", Errno, StrError(Errno), LOG_LEVEL_ERROR);
+        fprintf(stdout, "close %d %s", Errno, StrError(Errno));
     }
+    fprintf(stdout, "close %d %s\n", Errno, StrError(Errno));
     fd = INVALID_SOCKET;
     return ;
 }
 
+Result<Socket> Socket::Create(int famliy, int type, int protno)
+{
+    SOCKET s = socket(famliy, type, protno);
+    if (s == INVALID_SOCKET)
+    {
+        fprintf(stdout, "socket %d %s", Errno, StrError(Errno));
+        return Err(std::string(StrError(Errno)));
+    }
+
+    return Ok(Socket(s));
+}
 
 SOCKET  Socket::Create(int af,int type, const std::string& protocol)
 {
@@ -149,62 +164,121 @@ SOCKET  Socket::Create(int af,int type, const std::string& protocol)
     return s;
 }
 
+SOCKET Socket::take()
+{
+    SOCKET fd = this->fd;
 
-SOCKET Socket::GetSocket()
+    this->fd = INVALID_SOCKET;
+
+    return fd;
+}
+
+Result<void> Socket::connect(SocketAddr addr)
+{
+    int ret = 0;
+
+
+
+    if (addr.is_v4)
+    {
+        ret = ::connect(fd, (struct sockaddr *)&addr.sin4, (socklen_t)sizeof(struct sockaddr_in));
+        printf("fd %d\n", fd);
+        printf("addr.is_v4 %d\n", addr.is_v4);
+        struct sockaddr_in ss ;
+//        ss.sin_family = AF_INET;
+//        ss.sin_addr.S_un.S_addr = inet_addr("10.112.219.204");
+//        ss.sin_port = htons(80);
+//
+//        ret = ::connect(fd, (struct sockaddr *)&ss, (socklen_t)sizeof(struct sockaddr_in));
+    }
+    else
+    {
+        ret = ::connect(fd, (struct sockaddr *)&addr.sin6, (socklen_t)sizeof(struct sockaddr_in6));
+    }
+
+    if (ret < 0)
+    {
+        printf("connect fail %d\n", ret);
+        return Err(std::string(StrError(Errno)));
+    }
+    return Ok();
+}
+
+Result<void> Socket::select( uint32_t msecond)
+{
+    struct timeval timeout;
+    timeout.tv_sec = msecond/1000;
+    timeout.tv_usec = (msecond%1000) * 1000;
+
+    fd_set set;
+    FD_ZERO(&set);
+    FD_SET(fd, &set);
+
+    // �������
+    int opt_val = 0;
+    int length = sizeof(opt_val);
+
+    if(::select(fd + 1, NULL, &set, NULL, &timeout) > 0)
+    {
+        (void)getsockopt(fd, SOL_SOCKET, SO_ERROR, (char*)&opt_val, (socklen_t*)&length);
+    }
+
+    return Ok();
+}
+
+
+
+
+SOCKET Socket::get_socket()
 {
     return fd;
 }
 
 bool Socket::IsIpv6()
 {
-    return m_ipv6;
+    struct sockaddr_storage sa = {0};
+    socklen_t sockaddr_length = sizeof(struct sockaddr_storage);
+    if (getsockname(get_socket(), (struct sockaddr *)&sa, (socklen_t*)&sockaddr_length) == -1)
+        memset(&sa, 0, sizeof(sa));
+
+    if( sa.ss_family == AF_INET)
+        return false;
+    else
+        return true;
 }
 
+Result<SocketAddr> Socket::local()
+{
+    struct sockaddr_storage sa = {0};
+    socklen_t sockaddr_length = sizeof(struct sockaddr_storage);
+    if (getsockname(get_socket(), (struct sockaddr *)&sa, (socklen_t*)&sockaddr_length) == -1)
+        return Err(std::string(StrError(Errno)));
+
+    if( sa.ss_family == AF_INET)
+        return Ok(SocketAddr((struct sockaddr_in*)&sa));
+    else
+        return Ok(SocketAddr((struct sockaddr_in6*)&sa));
+}
 
 /** Returns local port number for bound socket file descriptor. */
-port_t Socket::GetSockPort()
+Result<uint16_t> Socket::local_port()
 {
+    auto local_addr =  this->local();
+    if( local_addr.is_err())
+        return Err(local_addr.unwrap_err());
 
-    if (IsIpv6())
-    {
-        struct sockaddr_in6 sa;
-        socklen_t sockaddr_length = sizeof(struct sockaddr_in6);
-        if (getsockname(GetSocket(), (struct sockaddr *)&sa, (socklen_t*)&sockaddr_length) == -1)
-            memset(&sa, 0, sizeof(sa));
-        return ntohs(sa.sin6_port);
-    }
-
-    struct sockaddr_in sa;
-    socklen_t sockaddr_length = sizeof(struct sockaddr_in);
-    if (getsockname(GetSocket(), (struct sockaddr *)&sa, (socklen_t*)&sockaddr_length) == -1)
-        memset(&sa, 0, sizeof(sa));
-    return ntohs(sa.sin_port);
+    return Ok(local_addr.unwrap().port());
 }
 
 /** Returns local ipv4 address as text for bound socket file descriptor. */
-IpAddr Socket::GetSockAddress()
+Result<IpAddr> Socket::local_ipaddr()
 {
-    if (IsIpv6())
-    {
-        struct sockaddr_in6 sa;
-        socklen_t sockaddr_length = sizeof(struct sockaddr_in6);
-        if (getsockname(GetSocket(), (struct sockaddr *)&sa, (socklen_t*)&sockaddr_length) == -1)
-            memset(&sa, 0, sizeof(sa));
+    auto local_addr =  this->local();
+    if( local_addr.is_err())
+        return Err(local_addr.unwrap_err());
 
-        Ipv6Addr _addr( sa.sin6_addr );
-        return IpAddr(_addr);
-    }
-
-    struct sockaddr_in sa;
-    socklen_t sockaddr_length = sizeof(struct sockaddr_in);
-    if (getsockname(GetSocket(), (struct sockaddr *)&sa, (socklen_t*)&sockaddr_length) == -1)
-        memset(&sa, 0, sizeof(sa));
-    Ipv4Addr addr( sa.sin_addr );
-
-    return  IpAddr( addr );
+    return Ok(local_addr.unwrap().ipaddr());
 }
-
-
 
 #if 0
 void inet_pton(int af, const char *src, void *dst)
@@ -223,7 +297,7 @@ void inet_pton(int af, const char *src, void *dst)
 		WSAStringToAddress( (LPSTR)ipaddr,af, NULL, (LPSOCKADDR)&ip6,&addr_size );
 		memcpy(dst,&(ip6.sin6_addr),16);
 	}
-	//printf("ipaddr len=%d\nAF_INET6=%d,AF_INET=%d,af=%d\n",addr_size,AF_INET6,AF_INET,af);
+	//printf("local_ipaddr len=%d\nAF_INET6=%d,AF_INET=%d,af=%d\n",addr_size,AF_INET6,AF_INET,af);
 }
 
 
@@ -262,76 +336,50 @@ const char* inet_ntop(int af, const void* src, char* dst, int cnt)
 }
 #endif
 
+Result<SocketAddr> Socket::peer()
+{
+    struct sockaddr_storage sa = {0};
+    socklen_t sockaddr_length = sizeof(struct sockaddr_storage);
+    if (getpeername(get_socket(), (struct sockaddr *)&sa, (socklen_t*)&sockaddr_length) == -1)
+        return Err(std::string(StrError(Errno)));
+
+    if( sa.ss_family == AF_INET)
+        return Ok(SocketAddr((struct sockaddr_in*)&sa));
+    else
+        return Ok(SocketAddr((struct sockaddr_in6*)&sa));
+}
+
 /** Returns remote port number: ipv4 and ipv6. */
-port_t Socket::GetRemotePort()
+Result<uint16_t> Socket::peer_port()
 {
-    sockaddr_storage storage;
-    socklen_t sock_len = sizeof(storage); // 锟斤拷锟斤拷锟斤拷锟街?
-    int ret = ::getpeername(fd, (sockaddr *)&storage, &sock_len); // 注锟斤拷锟斤拷sock_id
-    if (ret < 0){
-        printf("getpeername error: %s\n", strerror(errno));
-    }
-    else{
-        if (storage.ss_family == AF_INET){
-            sockaddr_in *addr = (sockaddr_in *)&storage;
-            char ip[INET_ADDRSTRLEN];
-            inet_ntop(AF_INET, &addr->sin_addr, ip, (int)sock_len);
-            printf("client [%s:%d] \n", ip, ntohs(addr->sin_port));
-            //Ipv4Addr(ip, ntohs(addr->sin_port));
-            return  ntohs(addr->sin_port);
-        }
-        else if (storage.ss_family == AF_INET6){
-            sockaddr_in6 *addr = (sockaddr_in6 *)&storage;
-            char ip[INET6_ADDRSTRLEN];
-            inet_ntop(AF_INET6, &addr->sin6_addr, ip, (int)sock_len);
-            printf("client [%s:%d] \n", ip, ntohs(addr->sin6_port));
-            //, ntohs(addr->sin6_port
-            return  ntohs(addr->sin6_port);
+    auto peer_addr =  this->peer();
+    if( peer_addr.is_err())
+        return Err(peer_addr.unwrap_err());
 
-        }
-    }
-
-    return 0;
+    return Ok(peer_addr.unwrap().port());
 }
 
-
-
-Result<IpAddr, int> Socket::GetClientRemoteAddress()
+Result<IpAddr> Socket::peer_addr()
 {
-    sockaddr_storage storage;
-    socklen_t sock_len = sizeof(storage); // 锟斤拷锟斤拷锟斤拷锟街?
-    int ret = ::getpeername(fd, (sockaddr *)&storage, &sock_len); // 注锟斤拷锟斤拷sock_id
-    if (ret < 0){
-        printf("getpeername error: %s\n", strerror(errno));
-    }
-    else{
-        if (storage.ss_family == AF_INET){
-            sockaddr_in *addr = (sockaddr_in *)&storage;
-            char ip[INET_ADDRSTRLEN];
-            inet_ntop(AF_INET, &addr->sin_addr, ip, (int)sock_len);
-            printf("client [%s:%d] \n", ip, ntohs(addr->sin_port));
-            //Ipv4Addr(ip, ntohs(addr->sin_port));
-            return  Ok( IpAddr(Ipv4Addr(addr->sin_addr)));
-        }
-        else if (storage.ss_family == AF_INET6){
-            sockaddr_in6 *addr = (sockaddr_in6 *)&storage;
-            char ip[INET6_ADDRSTRLEN];
-            inet_ntop(AF_INET6, &addr->sin6_addr, ip, (int)sock_len);
-            printf("client [%s:%d] \n", ip, ntohs(addr->sin6_port));
-            //, ntohs(addr->sin6_port
-            return  Ok( IpAddr(Ipv6Addr( addr->sin6_addr) ));
+    auto peer_addr =  this->peer();
+    if( peer_addr.is_err())
+        return Err(peer_addr.unwrap_err());
 
-        }
-    }
-
-    return Err(Errno);
+    return Ok(peer_addr.unwrap().ipaddr());
 }
 
+bool Socket::nodelay()
+{
+    char nodelay = 0;
+    int rc = setsockopt(this->fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, sizeof(int));
 
+    if (nodelay)
+        return true;
+    else
+        return false;
+}
 
-
-
-bool Socket::SetNonblocking(bool bNb)
+bool Socket::set_nodelay(bool bNb)
 {
 #ifdef _WIN32
     unsigned long l = bNb ? 1 : 0;
@@ -363,45 +411,11 @@ bool Socket::SetNonblocking(bool bNb)
 #endif
 }
 
-
-bool Socket::SetNonblocking(bool bNb, SOCKET s)
-{
-#ifdef _WIN32
-    unsigned long l = bNb ? 1 : 0;
-    int n = ioctlsocket(s, FIONBIO, &l);
-    if (n != 0)
-    {
-        fprintf(stdout,  "ioctlsocket(FIONBIO)", Errno, "");
-        return false;
-    }
-    return true;
-#else
-    if (bNb)
-	{
-		if (fcntl(s, F_SETFL, O_NONBLOCK) == -1)
-		{
-			fprintf(stdout,  "fcntl(F_SETFL, O_NONBLOCK)", Errno, StrError(Errno), LOG_LEVEL_ERROR);
-			return false;
-		}
-	}
-	else
-	{
-		if (fcntl(s, F_SETFL, 0) == -1)
-		{
-			fprintf(stdout,  "fcntl(F_SETFL, 0)", Errno, StrError(Errno), LOG_LEVEL_ERROR);
-			return false;
-		}
-	}
-	return true;
-#endif
-}
-
-
 /* IP options */
 bool Socket::SetIpOptions(const void *p, socklen_t len)
 {
 #ifdef IP_OPTIONS
-    if (setsockopt(GetSocket(), IPPROTO_IP, IP_OPTIONS, (char *)p, len) == -1)
+    if (setsockopt(get_socket(), IPPROTO_IP, IP_OPTIONS, (char *)p, len) == -1)
     {
         fprintf(stdout,  "setsockopt(IPPROTO_IP, IP_OPTIONS)", Errno, StrError(Errno));
         return false;
@@ -418,7 +432,7 @@ bool Socket::SetIpOptions(const void *p, socklen_t len)
 bool Socket::SetIpPktinfo(bool x)
 {
     int optval = x ? 1 : 0;
-    if (setsockopt(GetSocket(), IPPROTO_IP, IP_PKTINFO, (char *)&optval, sizeof(optval)) == -1)
+    if (setsockopt(get_socket(), IPPROTO_IP, IP_PKTINFO, (char *)&optval, sizeof(optval)) == -1)
     {
         fprintf(stdout,  "setsockopt(IPPROTO_IP, IP_PKTINFO)", Errno, StrError(Errno));
         return false;
@@ -432,7 +446,7 @@ bool Socket::SetIpPktinfo(bool x)
 bool Socket::SetIpRecvTOS(bool x)
 {
     int optval = x ? 1 : 0;
-    if (setsockopt(GetSocket(), IPPROTO_IP, IP_RECVTOS, (char *)&optval, sizeof(optval)) == -1)
+    if (setsockopt(get_socket(), IPPROTO_IP, IP_RECVTOS, (char *)&optval, sizeof(optval)) == -1)
     {
         fprintf(stdout, "setsockopt(IPPROTO_IP, IP_RECVTOS)", Errno, StrError(Errno));
         return false;
@@ -446,7 +460,7 @@ bool Socket::SetIpRecvTOS(bool x)
 bool Socket::SetIpRecvTTL(bool x)
 {
     int optval = x ? 1 : 0;
-    if (setsockopt(GetSocket(), IPPROTO_IP, IP_RECVTTL, (char *)&optval, sizeof(optval)) == -1)
+    if (setsockopt(get_socket(), IPPROTO_IP, IP_RECVTTL, (char *)&optval, sizeof(optval)) == -1)
     {
         fprintf(stdout,  "setsockopt(IPPROTO_IP, IP_RECVTTL)", Errno, StrError(Errno));
         return false;
@@ -487,7 +501,7 @@ bool Socket::SetIpRetopts(bool x)
 bool Socket::SetIpTOS(unsigned char tos)
 {
 #ifdef IP_TOS
-    if (setsockopt(GetSocket(), IPPROTO_IP, IP_TOS, (char *)&tos, sizeof(tos)) == -1)
+    if (setsockopt(get_socket(), IPPROTO_IP, IP_TOS, (char *)&tos, sizeof(tos)) == -1)
     {
         fprintf(stdout,  "setsockopt(IPPROTO_IP, IP_TOS)", Errno, StrError(Errno));
         return false;
@@ -505,7 +519,7 @@ unsigned char Socket::IpTOS()
     unsigned char tos = 0;
 #ifdef IP_TOS
     socklen_t len = sizeof(tos);
-    if (getsockopt(GetSocket(), IPPROTO_IP, IP_TOS, (char *)&tos, &len) == -1)
+    if (getsockopt(get_socket(), IPPROTO_IP, IP_TOS, (char *)&tos, &len) == -1)
     {
         fprintf(stdout,  "getsockopt(IPPROTO_IP, IP_TOS)", Errno, StrError(Errno));
     }
@@ -519,7 +533,7 @@ unsigned char Socket::IpTOS()
 bool Socket::SetIpTTL(int ttl)
 {
 #ifdef IP_TTL
-    if (setsockopt(GetSocket(), IPPROTO_IP, IP_TTL, (char *)&ttl, sizeof(ttl)) == -1)
+    if (setsockopt(get_socket(), IPPROTO_IP, IP_TTL, (char *)&ttl, sizeof(ttl)) == -1)
     {
         fprintf(stdout,  "setsockopt(IPPROTO_IP, IP_TTL)", Errno, StrError(Errno));
         return false;
@@ -537,7 +551,7 @@ int Socket::IpTTL()
     int ttl = 0;
 #ifdef IP_TTL
     socklen_t len = sizeof(ttl);
-    if (getsockopt(GetSocket(), IPPROTO_IP, IP_TTL, (char *)&ttl, &len) == -1)
+    if (getsockopt(get_socket(), IPPROTO_IP, IP_TTL, (char *)&ttl, &len) == -1)
     {
         fprintf(stdout, "getsockopt(IPPROTO_IP, IP_TTL)", Errno, StrError(Errno));
     }
@@ -552,7 +566,7 @@ bool Socket::SetIpHdrincl(bool x)
 {
 #ifdef IP_HDRINCL
     int optval = x ? 1 : 0;
-    if (setsockopt(GetSocket(), IPPROTO_IP, IP_HDRINCL, (char *)&optval, sizeof(optval)) == -1)
+    if (setsockopt(get_socket(), IPPROTO_IP, IP_HDRINCL, (char *)&optval, sizeof(optval)) == -1)
     {
         fprintf(stdout, "setsockopt(IPPROTO_IP, IP_HDRINCL)", Errno, StrError(Errno));
         return false;
@@ -569,7 +583,7 @@ bool Socket::SetIpHdrincl(bool x)
 bool Socket::SetIpRecverr(bool x)
 {
     int optval = x ? 1 : 0;
-    if (setsockopt(GetSocket(), IPPROTO_IP, IP_RECVERR, (char *)&optval, sizeof(optval)) == -1)
+    if (setsockopt(get_socket(), IPPROTO_IP, IP_RECVERR, (char *)&optval, sizeof(optval)) == -1)
     {
         fprintf(stdout, "setsockopt(IPPROTO_IP, IP_RECVERR)", Errno, StrError(Errno));
         return false;
@@ -583,7 +597,7 @@ bool Socket::SetIpRecverr(bool x)
 bool Socket::SetIpMtudiscover(bool x)
 {
     int optval = x ? 1 : 0;
-    if (setsockopt(GetSocket(), IPPROTO_IP, IP_MTU_DISCOVER, (char *)&optval, sizeof(optval)) == -1)
+    if (setsockopt(get_socket(), IPPROTO_IP, IP_MTU_DISCOVER, (char *)&optval, sizeof(optval)) == -1)
     {
         fprintf(stdout,  "setsockopt(IPPROTO_IP, IP_MTU_DISCOVER)", Errno, StrError(Errno));
         return false;
@@ -598,7 +612,7 @@ int Socket::IpMtu()
 {
     int mtu = 0;
     socklen_t len = sizeof(mtu);
-    if (getsockopt(GetSocket(), IPPROTO_IP, IP_MTU, (char *)&mtu, &len) == -1)
+    if (getsockopt(get_socket(), IPPROTO_IP, IP_MTU, (char *)&mtu, &len) == -1)
     {
         fprintf(stdout, "getsockopt(IPPROTO_IP, IP_MTU)", Errno, StrError(Errno));
     }
@@ -624,7 +638,7 @@ bool Socket::SetIpRouterAlert(bool x)
 bool Socket::SetIpMulticastTTL(int ttl)
 {
 #ifdef IP_MULTICAST_TTL
-    if (setsockopt(GetSocket(), IPPROTO_IP, IP_MULTICAST_TTL, (char *)&ttl, sizeof(ttl)) == -1)
+    if (setsockopt(get_socket(), IPPROTO_IP, IP_MULTICAST_TTL, (char *)&ttl, sizeof(ttl)) == -1)
     {
         fprintf(stdout, "setsockopt(IPPROTO_IP, IP_MULTICAST_TTL)", Errno, StrError(Errno));
         return false;
@@ -642,7 +656,7 @@ int Socket::IpMulticastTTL()
     int ttl = 0;
 #ifdef IP_MULTICAST_TTL
     socklen_t len = sizeof(ttl);
-    if (getsockopt(GetSocket(), IPPROTO_IP, IP_MULTICAST_TTL, (char *)&ttl, &len) == -1)
+    if (getsockopt(get_socket(), IPPROTO_IP, IP_MULTICAST_TTL, (char *)&ttl, &len) == -1)
     {
         fprintf(stdout, "getsockopt(IPPROTO_IP, IP_MULTICAST_TTL)", Errno, StrError(Errno));
     }
@@ -657,7 +671,7 @@ bool Socket::SetMulticastLoop(bool x)
 {
 #ifdef IP_MULTICAST_LOOP
     int optval = x ? 1 : 0;
-    if (setsockopt(GetSocket(), IPPROTO_IP, IP_MULTICAST_LOOP, (char *)&optval, sizeof(optval)) == -1)
+    if (setsockopt(get_socket(), IPPROTO_IP, IP_MULTICAST_LOOP, (char *)&optval, sizeof(optval)) == -1)
     {
         fprintf(stdout, "setsockopt(IPPROTO_IP, IP_MULTICAST_LOOP)", Errno, StrError(Errno));
         return false;
@@ -691,7 +705,7 @@ bool Socket::IpAddMembership(struct ip_mreqn& ref)
 bool Socket::IpAddMembership(struct ip_mreq& ref)
 {
 #ifdef IP_ADD_MEMBERSHIP
-    if (setsockopt(GetSocket(), IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&ref, sizeof(struct ip_mreq)) == -1)
+    if (setsockopt(get_socket(), IPPROTO_IP, IP_ADD_MEMBERSHIP, (char *)&ref, sizeof(struct ip_mreq)) == -1)
     {
         fprintf(stdout,  "setsockopt(IPPROTO_IP, IP_ADD_MEMBERSHIP)", Errno, StrError(Errno));
         return false;
@@ -725,7 +739,7 @@ bool Socket::IpDropMembership(struct ip_mreqn& ref)
 bool Socket::IpDropMembership(struct ip_mreq& ref)
 {
 #ifdef IP_DROP_MEMBERSHIP
-    if (setsockopt(GetSocket(), IPPROTO_IP, IP_DROP_MEMBERSHIP, (char *)&ref, sizeof(struct ip_mreq)) == -1)
+    if (setsockopt(get_socket(), IPPROTO_IP, IP_DROP_MEMBERSHIP, (char *)&ref, sizeof(struct ip_mreq)) == -1)
     {
         fprintf(stdout, "setsockopt(IPPROTO_IP, IP_DROP_MEMBERSHIP)", Errno, StrError(Errno));
         return false;
@@ -745,7 +759,7 @@ bool Socket::SetSoReuseaddr(bool x)
 {
 #ifdef SO_REUSEADDR
     int optval = x ? 1 : 0;
-    if (setsockopt(GetSocket(), SOL_SOCKET, SO_REUSEADDR, (char *)&optval, sizeof(optval)) == -1)
+    if (setsockopt(get_socket(), SOL_SOCKET, SO_REUSEADDR, (char *)&optval, sizeof(optval)) == -1)
     {
         fprintf(stdout, "setsockopt(SOL_SOCKET, SO_REUSEADDR)", Errno, StrError(Errno));
         return false;
@@ -762,7 +776,7 @@ bool Socket::SetSoKeepalive(bool x)
 {
 #ifdef SO_KEEPALIVE
     int optval = x ? 1 : 0;
-    if (setsockopt(GetSocket(), SOL_SOCKET, SO_KEEPALIVE, (char *)&optval, sizeof(optval)) == -1)
+    if (setsockopt(get_socket(), SOL_SOCKET, SO_KEEPALIVE, (char *)&optval, sizeof(optval)) == -1)
     {
         fprintf(stdout, "setsockopt(SOL_SOCKET, SO_KEEPALIVE)", Errno, StrError(Errno));
         return false;
@@ -794,7 +808,7 @@ bool Socket::SoAcceptconn()
     int value = 0;
 #ifdef SO_ACCEPTCONN
     socklen_t len = sizeof(value);
-    if (getsockopt(GetSocket(), SOL_SOCKET, SO_ACCEPTCONN, (char *)&value, &len) == -1)
+    if (getsockopt(get_socket(), SOL_SOCKET, SO_ACCEPTCONN, (char *)&value, &len) == -1)
     {
         fprintf(stdout, "getsockopt(SOL_SOCKET, SO_ACCEPTCONN)", Errno, StrError(Errno));
     }
@@ -836,7 +850,7 @@ bool Socket::SetSoBroadcast(bool x)
 {
 #ifdef SO_BROADCAST
     int optval = x ? 1 : 0;
-    if (setsockopt(GetSocket(), SOL_SOCKET, SO_BROADCAST, (char *)&optval, sizeof(optval)) == -1)
+    if (setsockopt(get_socket(), SOL_SOCKET, SO_BROADCAST, (char *)&optval, sizeof(optval)) == -1)
     {
         fprintf(stdout, "setsockopt(SOL_SOCKET, SO_BROADCAST)", Errno, StrError(Errno));
         return false;
@@ -853,7 +867,7 @@ bool Socket::SetSoDebug(bool x)
 {
 #ifdef SO_DEBUG
     int optval = x ? 1 : 0;
-    if (setsockopt(GetSocket(), SOL_SOCKET, SO_DEBUG, (char *)&optval, sizeof(optval)) == -1)
+    if (setsockopt(get_socket(), SOL_SOCKET, SO_DEBUG, (char *)&optval, sizeof(optval)) == -1)
     {
         fprintf(stdout, "setsockopt(SOL_SOCKET, SO_DEBUG)", Errno, StrError(Errno));
         return false;
@@ -871,7 +885,7 @@ int Socket::SoError()
     int value = 0;
 #ifdef SO_ERROR
     socklen_t len = sizeof(value);
-    if (getsockopt(GetSocket(), SOL_SOCKET, SO_ERROR, (char *)&value, &len) == -1)
+    if (getsockopt(get_socket(), SOL_SOCKET, SO_ERROR, (char *)&value, &len) == -1)
     {
         fprintf(stdout, "getsockopt(SOL_SOCKET, SO_ERROR)", Errno, StrError(Errno));
     }
@@ -886,7 +900,7 @@ bool Socket::SetSoDontroute(bool x)
 {
 #ifdef SO_DONTROUTE
     int optval = x ? 1 : 0;
-    if (setsockopt(GetSocket(), SOL_SOCKET, SO_DONTROUTE, (char *)&optval, sizeof(optval)) == -1)
+    if (setsockopt(get_socket(), SOL_SOCKET, SO_DONTROUTE, (char *)&optval, sizeof(optval)) == -1)
     {
         fprintf(stdout, "setsockopt(SOL_SOCKET, SO_DONTROUTE)", Errno, StrError(Errno));
         return false;
@@ -905,7 +919,7 @@ bool Socket::SetSoLinger(int onoff, int linger)
     struct linger stl;
     stl.l_onoff = onoff;
     stl.l_linger = linger;
-    if (setsockopt(GetSocket(), SOL_SOCKET, SO_LINGER, (char *)&stl, sizeof(stl)) == -1)
+    if (setsockopt(get_socket(), SOL_SOCKET, SO_LINGER, (char *)&stl, sizeof(stl)) == -1)
     {
         fprintf(stdout, "setsockopt(SOL_SOCKET, SO_LINGER)", Errno, StrError(Errno));
         return false;
@@ -922,7 +936,7 @@ bool Socket::SetSoOobinline(bool x)
 {
 #ifdef SO_OOBINLINE
     int optval = x ? 1 : 0;
-    if (setsockopt(GetSocket(), SOL_SOCKET, SO_OOBINLINE, (char *)&optval, sizeof(optval)) == -1)
+    if (setsockopt(get_socket(), SOL_SOCKET, SO_OOBINLINE, (char *)&optval, sizeof(optval)) == -1)
     {
         fprintf(stdout, "setsockopt(SOL_SOCKET, SO_OOBINLINE)", Errno, StrError(Errno));
         return false;
@@ -978,7 +992,7 @@ bool Socket::SetSoPriority(int x)
 bool Socket::SetSoRcvlowat(int x)
 {
 #ifdef SO_RCVLOWAT
-    if (setsockopt(GetSocket(), SOL_SOCKET, SO_RCVLOWAT, (char *)&x, sizeof(x)) == -1)
+    if (setsockopt(get_socket(), SOL_SOCKET, SO_RCVLOWAT, (char *)&x, sizeof(x)) == -1)
     {
         fprintf(stdout, "setsockopt(SOL_SOCKET, SO_RCVLOWAT)", Errno, StrError(Errno));
         return false;
@@ -994,7 +1008,7 @@ bool Socket::SetSoRcvlowat(int x)
 bool Socket::SetSoSndlowat(int x)
 {
 #ifdef SO_SNDLOWAT
-    if (setsockopt(GetSocket(), SOL_SOCKET, SO_SNDLOWAT, (char *)&x, sizeof(x)) == -1)
+    if (setsockopt(get_socket(), SOL_SOCKET, SO_SNDLOWAT, (char *)&x, sizeof(x)) == -1)
     {
         fprintf(stdout, "setsockopt(SOL_SOCKET, SO_SNDLOWAT)", Errno, StrError(Errno));
         return false;
@@ -1010,7 +1024,7 @@ bool Socket::SetSoSndlowat(int x)
 bool Socket::SetSoRcvtimeo(struct timeval& tv)
 {
 #ifdef SO_RCVTIMEO
-    if (setsockopt(GetSocket(), SOL_SOCKET, SO_RCVTIMEO, (char *)&tv, sizeof(tv)) == -1)
+    if (setsockopt(get_socket(), SOL_SOCKET, SO_RCVTIMEO, (char *)&tv, sizeof(tv)) == -1)
     {
         fprintf(stdout, "setsockopt(SOL_SOCKET, SO_RCVTIMEO)", Errno, StrError(Errno));
         return false;
@@ -1023,26 +1037,61 @@ bool Socket::SetSoRcvtimeo(struct timeval& tv)
 }
 
 
-bool Socket::SetSoSndtimeo(struct timeval& tv)
+Result<void> Socket::set_write_timeout(struct timeval& tv)
 {
-#ifdef SO_SNDTIMEO
-    if (setsockopt(GetSocket(), SOL_SOCKET, SO_SNDTIMEO, (char *)&tv, sizeof(tv)) == -1)
+    if (setsockopt(get_socket(), SOL_SOCKET, SO_SNDTIMEO, (char *)&tv, sizeof(tv)) == -1)
     {
         fprintf(stdout, "setsockopt(SOL_SOCKET, SO_SNDTIMEO)", Errno, StrError(Errno));
-        return false;
+        return Err(std::string(StrError(Errno)));
     }
-    return true;
-#else
-    fprintf(stdout, "socket option not available", 0, "SO_SNDTIMEO", LOG_LEVEL_INFO);
-	return false;
-#endif
+    return Ok();
+}
+
+Result<Option<struct timeval>> Socket::write_timeout( )
+{
+    struct timeval tv = {0};
+    socklen_t optlen = sizeof(struct timeval);
+
+    if (getsockopt(get_socket(), SOL_SOCKET, SO_SNDTIMEO, (char *)&tv, &optlen) == -1)
+    {
+        fprintf(stdout, "setsockopt(SOL_SOCKET, SO_SNDTIMEO)", Errno, StrError(Errno));
+        return Err(std::string(StrError(Errno)));
+    }
+
+    Option<struct timeval> ret = Some(tv);
+    return Ok(std::move(ret));
+}
+
+Result<void> Socket::set_read_timeout(struct timeval& tv)
+{
+    if (setsockopt(get_socket(), SOL_SOCKET, SO_RCVTIMEO, (char *)&tv, sizeof(tv)) == -1)
+    {
+        fprintf(stdout, "setsockopt(SOL_SOCKET, SO_RCVTIMEO)", Errno, StrError(Errno));
+        return Err(std::string(StrError(Errno)));
+    }
+    return Ok();
+}
+
+Result<Option<struct timeval>> Socket::read_timeout( )
+{
+    struct timeval tv = {0};
+    socklen_t optlen = sizeof(struct timeval);
+
+    if (getsockopt(get_socket(), SOL_SOCKET, SO_RCVTIMEO, (char *)&tv, &optlen) == -1)
+    {
+        fprintf(stdout, "setsockopt(SOL_SOCKET, SO_RCVTIMEO)", Errno, StrError(Errno));
+        return Err(std::string(StrError(Errno)));
+    }
+
+    Option<struct timeval> ret = Some(tv);
+    return Ok(std::move(ret));
 }
 
 
 bool Socket::SetSoRcvbuf(int x)
 {
 #ifdef SO_RCVBUF
-    if (setsockopt(GetSocket(), SOL_SOCKET, SO_RCVBUF, (char *)&x, sizeof(x)) == -1)
+    if (setsockopt(get_socket(), SOL_SOCKET, SO_RCVBUF, (char *)&x, sizeof(x)) == -1)
     {
         fprintf(stdout, "setsockopt(SOL_SOCKET, SO_RCVBUF)", Errno, StrError(Errno));
         return false;
@@ -1060,7 +1109,7 @@ int Socket::SoRcvbuf()
     int value = 0;
 #ifdef SO_RCVBUF
     socklen_t len = sizeof(value);
-    if (getsockopt(GetSocket(), SOL_SOCKET, SO_RCVBUF, (char *)&value, &len) == -1)
+    if (getsockopt(get_socket(), SOL_SOCKET, SO_RCVBUF, (char *)&value, &len) == -1)
     {
         fprintf(stdout, "getsockopt(SOL_SOCKET, SO_RCVBUF)", Errno, StrError(Errno));
     }
@@ -1087,7 +1136,7 @@ bool Socket::SetSoRcvbufforce(int x)
 bool Socket::SetSoSndbuf(int x)
 {
 #ifdef SO_SNDBUF
-    if (setsockopt(GetSocket(), SOL_SOCKET, SO_SNDBUF, (char *)&x, sizeof(x)) == -1)
+    if (setsockopt(get_socket(), SOL_SOCKET, SO_SNDBUF, (char *)&x, sizeof(x)) == -1)
     {
         fprintf(stdout, "setsockopt(SOL_SOCKET, SO_SNDBUF)", Errno, StrError(Errno));
         return false;
@@ -1105,7 +1154,7 @@ int Socket::SoSndbuf()
     int value = 0;
 #ifdef SO_SNDBUF
     socklen_t len = sizeof(value);
-    if (getsockopt(GetSocket(), SOL_SOCKET, SO_SNDBUF, (char *)&value, &len) == -1)
+    if (getsockopt(get_socket(), SOL_SOCKET, SO_SNDBUF, (char *)&value, &len) == -1)
     {
         fprintf(stdout, "getsockopt(SOL_SOCKET, SO_SNDBUF)", Errno, StrError(Errno));
     }
@@ -1148,7 +1197,7 @@ int Socket::SoType()
     int value = 0;
 #ifdef SO_TYPE
     socklen_t len = sizeof(value);
-    if (getsockopt(GetSocket(), SOL_SOCKET, SO_TYPE, (char *)&value, &len) == -1)
+    if (getsockopt(get_socket(), SOL_SOCKET, SO_TYPE, (char *)&value, &len) == -1)
     {
         fprintf(stdout, "getsockopt(SOL_SOCKET, SO_TYPE)", Errno, StrError(Errno));
     }

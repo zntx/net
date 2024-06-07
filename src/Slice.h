@@ -98,7 +98,7 @@ public:
                     break;
             }
 
-            if( j = ch.len)
+            if( j == ch.len)
                 return Some(i);
 
 
@@ -126,6 +126,11 @@ public:
             return None();
 
         return Some(Slice(this->addr + pos, this->len - pos));
+    }
+
+    std::string to_string()
+    {
+        return std::string((char*)this->addr, this->len);
     }
 };
 

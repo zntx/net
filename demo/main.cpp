@@ -2,24 +2,44 @@
 #include "net.h"
 int test_client(int agrc, char *agrv[])
 {
-    auto stream_pack = TcpStream::Connect("127.0.0.1:9005");
+    auto stream_pack = TcpStream::Connect("10.112.219.204:80");
     if (stream_pack.is_err())
     {
-        printf("connect fail %s \n", stream_pack.unwrap_err().c_str());
+        printf("connect fail： %s \n", stream_pack.unwrap_err().c_str());
         return -1;
     }
 
     printf("connect OK \n");
     TcpStream stream = stream_pack.unwrap();
 
-    char data[] = "abcdefg";
-    Slice<uint8_t> slice((uint8_t *)&data[0], sizeof(data));
+    printf("stream socket %u\n", stream.get_socket());
+
+    const char* data = "GET http://10.112.219.204/SDK/language HTTP/1.1\r\n"
+                       "Accept: */*\r\n"
+                       "If-Modified-Since: 0\r\n"
+                       "X-Requested-With: XMLHttpRequest\n"
+                       "Referer: http://10.112.219.204/doc/page/login.asp?_1717680778970\r\n"
+                       "Accept-Language: zh-Hans-CN,zh-Hans;q=0.5\r\n"
+                       "Accept-Encoding: gzip, deflate\r\n"
+                       "User-Agent: Mozilla/5.0 (Windows NT 10.0; WOW64; Trident/7.0; rv:11.0) like Gecko\r\n"
+                       "Host: 10.112.219.204\r\n"
+                       "Connection: Keep-Alive\r\n"
+                       "Cookie: _wnd_size_mode=5\r\n"
+                       "\r\n";
+    Slice<uint8_t> slice((uint8_t *)data, strlen(data));
+
+    std::cout << "send :" << slice.to_string() << std::endl;
+
     stream.write(slice);
 
-    std::size_t len = stream.read(slice);
+
+    char resp[300] = {0};
+    Slice<char> slice_resp( &resp[0], 300);
+
+    std::size_t len = stream.read(slice_resp);
 
     printf("read size %lu\n", len);
-    printf("read  %s\n", slice.addr);
+    printf("read  %s\n", slice_resp.addr);
 
     return 0;
 }
@@ -34,7 +54,7 @@ int test_server(int agrc, char *agrv[])
     }
     TcpListener listener = listener_pack.unwrap();
 
-    printf(" listener %d\n", listener.GetSocket());
+    printf(" listener %d\n", listener.get_socket());
 
     auto stream_pack = listener.Accept();
     if (stream_pack.is_err())
@@ -57,6 +77,48 @@ int test_server(int agrc, char *agrv[])
 
     return 1;
 }
+
+int main2(int agrc, char *agrv[])
+{
+    WSADATA wsaData;
+    if(WSAStartup(MAKEWORD(2,2),&wsaData)){
+        cout<<"WinSock不能被初始化";
+        WSACleanup();
+        return 0;
+    }
+    SOCKET sockCli;
+    sockCli=socket(AF_INET,SOCK_STREAM,0);
+    SOCKADDR_IN addrSer;
+    addrSer.sin_family=AF_INET;
+    addrSer.sin_port=htons(80);
+    addrSer.sin_addr.S_un.S_addr=inet_addr("10.112.219.204");
+    int res=connect(sockCli,(SOCKADDR *)&addrSer,sizeof(SOCKADDR));
+    if(res){
+        cout<<" error -----------------"<<endl;
+        return -1;
+    }else{
+        cout<<" ok -----------------"<<endl;
+    }
+    char sendbuf[256],recvbuf[256];
+    while(1){
+        cout<<"client:>";
+        cin>>sendbuf;
+        if(strcmp(sendbuf,"bye")==0)	break;
+        send(sockCli,sendbuf,strlen(sendbuf)+1,0);
+        if(recv(sockCli,recvbuf,256,0)>0){
+            cout<<"server:>"<<recvbuf<<endl;
+        }else{
+            cout<<"server close"<<endl;
+            break;
+        }
+    }
+    closesocket(sockCli);
+    WSACleanup();
+    return 0;
+}
+
+
+
 
 
 
@@ -135,23 +197,23 @@ int main(int agrc, char *agrv[])
 //        printf("ip11 Create fail %s \n", ip11.unwrap_err().c_str());
 //    }
 
-    auto addr1 = SocketAddr::Create(std::string("10.112.219.204"));
-    if( addr1.is_ok())
-    {
-        printf("addr1 Create OK %s \n", addr1.unwrap().to_string().c_str());
-    }else
-    {
-       printf("addr1 Create fail %s \n", addr1.unwrap_err().c_str());
-    }
-
-    auto addr2 = SocketAddr::Create(std::string("10.112.219.204:80"));
-    if( addr2.is_ok())
-    {
-        printf("addr2 Create OK %s \n", addr2.unwrap().to_string().c_str());
-    }else
-    {
-        printf("addr2 Create fail %s \n", addr2.unwrap_err().c_str());
-    }
+//    auto addr1 = SocketAddr::Create(std::string("10.112.219.204"));
+//    if( addr1.is_ok())
+//    {
+//        printf("addr1 Create OK %s \n", addr1.unwrap().to_string().c_str());
+//    }else
+//    {
+//       printf("addr1 Create fail %s \n", addr1.unwrap_err().c_str());
+//    }
+//
+//    auto addr2 = SocketAddr::Create(std::string("10.112.219.204:80"));
+//    if( addr2.is_ok())
+//    {
+//        printf("addr2 Create OK %s \n", addr2.unwrap().to_string().c_str());
+//    }else
+//    {
+//        printf("addr2 Create fail %s \n", addr2.unwrap_err().c_str());
+//    }
 
 
     test_client(agrc, agrv);

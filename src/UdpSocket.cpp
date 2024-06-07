@@ -109,7 +109,7 @@ Result<UdpSocket> UdpSocket::Connect(const char *host, size_t port)
         server_sockaddr.sin_port = htons(port);
         server_sockaddr.sin_addr.s_addr = inet_addr(host_ip);
 
-        int ret = connect(strem, (struct sockaddr *)&server_sockaddr, sizeof(server_sockaddr));
+        int ret = ::connect(strem, (struct sockaddr *)&server_sockaddr, sizeof(server_sockaddr));
         if (ret < 0)
         {
             perror("connect");
@@ -127,7 +127,7 @@ Result<UdpSocket> UdpSocket::Connect(const char *host, size_t port)
 
         struct sockaddr_in6 server_sockaddr6;
         server_sockaddr6.sin6_family = AF_INET6;
-        int ret = connect(strem, (struct sockaddr *)&server_sockaddr6, (socklen_t)sizeof(struct sockaddr_in6));
+        int ret = ::connect(strem, (struct sockaddr *)&server_sockaddr6, (socklen_t)sizeof(struct sockaddr_in6));
         if (ret < 0)
         {
             perror("connect");

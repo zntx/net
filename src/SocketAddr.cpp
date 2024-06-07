@@ -82,7 +82,6 @@ SocketAddrV6::SocketAddrV6(struct sockaddr_in6 *s)
     memcpy(&sa, s, sizeof(struct sockaddr_in6));
 }
 
-
 uint16_t SocketAddrV6::port()
 {
     return ntohs(this->sa.sin6_port);
@@ -200,6 +199,29 @@ SocketAddr::SocketAddr():is_v4(true)
     sin4.sin_port = 0;
 }
 
+SocketAddr::SocketAddr(struct sockaddr_in *s)
+{
+    memcpy(&sin4, s, sizeof(struct sockaddr_in));
+    is_v4 = true;
+}
+
+SocketAddr::SocketAddr(struct sockaddr_in6 *s)
+{
+    memcpy(&sin6, s, sizeof(struct sockaddr_in6));
+    is_v4 = false;
+}
+
+SocketAddr::SocketAddr(struct sockaddr *ai_addr )
+{
+   if( ai_addr->sa_family == AF_INET) {
+       memcpy(&sin4, ai_addr, sizeof(struct sockaddr_in));
+       is_v4 = true;
+   }else{
+       memcpy(&sin6, ai_addr, sizeof(struct sockaddr_in6));
+       is_v4 = false;
+   }
+}
+
 SocketAddr::SocketAddr(SocketAddrV4 v4)
 {
     memcpy(&sin4, &v4.sa, sizeof(struct sockaddr_in));
@@ -264,6 +286,18 @@ SocketAddr &SocketAddr::operator=(const SocketAddr &addr)
     return *this;
 }
 
+IpAddr  SocketAddr::ipaddr()
+{
+    if (this->is_v4)
+    {
+        return IpAddr(this->sin4.sin_addr);
+    }
+    else
+    {
+        return IpAddr(this->sin6.sin6_addr);
+    }
+}
+
 uint16_t SocketAddr::port( )
 {
     if (this->is_v4)
@@ -273,6 +307,18 @@ uint16_t SocketAddr::port( )
     else
     {
         return ntohs(this->sin6.sin6_port);
+    }
+}
+
+void SocketAddr::set_port( uint16_t port)
+{
+    if (this->is_v4)
+    {
+        this->sin4.sin_port = htons(port);
+    }
+    else
+    {
+        this->sin6.sin6_port= htons(port);
     }
 }
 

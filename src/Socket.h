@@ -8,6 +8,7 @@
 
 #include <time.h>
 #include "IpAddr.h"
+#include "SocketAddr.h"
 #include "Slice.h"
 
 
@@ -57,8 +58,12 @@ class Socket
 public:
     /** "Default" constructor */
     Socket( SOCKET _soket = 0 );
+    Socket( Socket&&  soc);
 
     virtual ~Socket();
+
+
+static  Result<Socket> Create(int famliy, int type, int protno);
 
     /** Create a socket file descriptor.
         \param af Address family AF_INET / AF_INET6 / ...
@@ -66,25 +71,34 @@ public:
         \param protocol "tcp" / "udp" / ... */
     SOCKET Create(int af, int type, const std::string& protocol = "");
 
+    Result<void> connect(SocketAddr addr);
+
+    Result<void> select( uint32_t msecond);
+
     /** Return file descriptor assigned to this socket. */
-    SOCKET GetSocket();
+    SOCKET get_socket();
 
+    SOCKET take();
+
+    Result<SocketAddr> local();
     /** Returns local port number for bound socket file descriptor. */
-    port_t GetSockPort();
+    Result<uint16_t> local_port();
 
-    IpAddr GetSockAddress();
+    Result<IpAddr> local_ipaddr();
 
+    Result<SocketAddr> peer();
     /** Returns remote port number: ipv4 and ipv6. */
-    port_t GetRemotePort();
+    Result<uint16_t> peer_port();
 
     /** Get address/port of last connect() call. */
-    Result<IpAddr, int> GetClientRemoteAddress();
+    Result<IpAddr> peer_addr();
 
     /** Set socket non-block operation. */
     bool SetNonblocking(bool);
 
+    bool nodelay();
     /** Set socket non-block operation. */
-    bool SetNonblocking(bool, SOCKET);
+    bool set_nodelay(bool bNb);
 
     /** \name Event callbacks */
     //@{
@@ -189,7 +203,13 @@ public:
     bool SetSoRcvlowat(int);
     bool SetSoSndlowat(int);
     bool SetSoRcvtimeo(struct timeval&);
-    bool SetSoSndtimeo(struct timeval&);
+
+    Result<void> set_write_timeout(struct timeval &tv);
+    Result<Option<struct timeval>> write_timeout( );
+
+    Result<void> set_read_timeout(struct timeval& tv);
+    Result<Option<struct timeval>> read_timeout( );
+
     bool SetSoRcvbuf(int);
     int SoRcvbuf();
     bool SetSoSndbuf(int);
