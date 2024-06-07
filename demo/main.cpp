@@ -63,7 +63,9 @@ int test_client(int agrc, char *agrv[])
 
 int test_server(int agrc, char *agrv[])
 {
-    auto listener_pack = TcpListener::bin("0.0.0.0", 9005);
+    const char* host = "0.0.0.0";
+
+    auto listener_pack = TcpListener::Bin(Slice<const char>(host, strlen(host)), 9005);
     if (listener_pack.is_err())
     {
         printf("connect fail %s \n", listener_pack.unwrap_err().c_str());
@@ -73,7 +75,7 @@ int test_server(int agrc, char *agrv[])
 
     printf(" listener %d\n", listener.get_socket());
 
-    auto stream_pack = listener.Accept();
+    auto stream_pack = listener.accept();
     if (stream_pack.is_err())
     {
         printf("Accept fail %d \n", stream_pack.unwrap_err().c_str());
@@ -82,8 +84,8 @@ int test_server(int agrc, char *agrv[])
 
     TcpStream stream = stream_pack.unwrap();
 
-    char data[] = "abcdefg";
-    Slice<uint8_t> slice((uint8_t *)&data[0], sizeof(data));
+    char data[300] = "0";
+    Slice<uint8_t> slice((uint8_t *)&data[0], 300);
 
     std::size_t len = stream.read(slice);
 
@@ -233,5 +235,7 @@ int main(int agrc, char *agrv[])
 //    }
 
 
-    test_client(agrc, agrv);
+    //test_client(agrc, agrv);
+
+    test_server(agrc, agrv);
 }

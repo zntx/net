@@ -204,6 +204,35 @@ Result<void> Socket::connect(SocketAddr addr)
     return Ok();
 }
 
+
+/**@brief	绑定socket
+ * @param[in]  socket_fd 创建的套接字
+ * @param[in]  p_cpa_addr 要绑定的地址结构(包含协议族,端口,地址)
+ * @param[out] 无
+ * @return	  成功/失败
+ */
+Result<void> Socket::bind( SocketAddr& addr)
+{
+    int ret_value = -1;
+
+    if(addr.is_v4)
+    {
+        ret_value = ::bind(fd,(struct sockaddr *)&addr.sin4, sizeof(struct sockaddr_in));
+    }
+    else
+    {
+        ret_value = ::bind(fd,(struct sockaddr *)&addr.sin6, sizeof(sockaddr_in6));
+    }
+
+
+    if( ret_value < 0)
+        return Err(std::string(StrError(Errno)));
+
+    return Ok();
+}
+
+
+
 Result<void> Socket::select( uint32_t msecond)
 {
     struct timeval timeout;

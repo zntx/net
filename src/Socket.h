@@ -73,6 +73,8 @@ static  Result<Socket> Create(int famliy, int type, int protno);
 
     Result<void> connect(SocketAddr addr);
 
+    Result<void> bind( SocketAddr& addr);
+
     Result<void> select( uint32_t msecond);
 
     /** Return file descriptor assigned to this socket. */

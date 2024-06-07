@@ -1,3 +1,6 @@
+#ifndef NET_TCPSTREAM_H
+#define NET_TCPSTREAM_H
+
 /*
 
 
@@ -48,30 +51,19 @@ public:
     // Result<void, string> set_read_timeout(Option<duration> dur);
     // Result<void, string> set_write_timeout(struct timeval *tv);
     // Result<void, string> set_write_timeout(Option<duration> dur);
-    Result<Option<struct timeval>> read_timeout();
-    Result<Option<struct timeval>> write_timeout();
+    //Result<Option<struct timeval>> read_timeout();
+    //Result<Option<struct timeval>> write_timeout();
     // Result<Option<duration>, Error> read_timeout();
     // Result<Option<duration>, Error> write_timeout();
     // Result<void, string> set_linger(linger : Option<duration>);
     // Result<Option<duration>, Err> linger();
     // Result<void, string> set_nodelay(bool nodelay  );
     //Result<bool> nodelay();
-    Result<void, int> set_ttl(uint32_t ttl);
-    Result<uint32_t> ttl();
+    //Result<void, int> set_ttl(uint32_t ttl);
+    //Result<uint32_t> ttl();
     //Result<void, int> take_error();
     //Result<void, int> set_nonblocking(bool nonblocking);
 };
 
-class TcpListener : public TcpStream
-{
 
-public:
-    static Result<TcpListener> bin(const char *host_name, uint16_t port);
-
-    TcpListener(int fd);
-    TcpListener(TcpListener &&other);
-    Result<TcpStream> Accept();
-
-    Result<TcpStream> AccepT_timeout(uint32_t msecond);
-
-};
+#endif
