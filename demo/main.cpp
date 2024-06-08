@@ -112,7 +112,7 @@ int test_server(int agrc, char *agrv[])
 
     return 1;
 }
-
+#if 0
 int main2(int agrc, char *agrv[])
 {
     WSADATA wsaData;
@@ -152,7 +152,7 @@ int main2(int agrc, char *agrv[])
     return 0;
 }
 
-
+#endif
 
 
 

@@ -65,6 +65,7 @@ typedef unsigned long socketuid_t;
 // platform specific stuff
 #if (defined(__unix__) || defined(unix)) && !defined(USG)
     #include <sys/param.h>
+    #include <unistd.h>
 #endif
 #include <list>
 
@@ -92,16 +93,15 @@ typedef unsigned long socketuid_t;
     #include <netinet/in.h>
     #include <arpa/inet.h>
 
+
+    #include <netdb.h>
+
+
     // all typedefs in this file will be declared outside the sockets namespace,
     // because some os's will already have one or more of the type defined.
     typedef int SOCKET;
     #define Errno errno
     #define StrError strerror
-
-    #ifdef SOCKETS_NAMESPACE
-    namespace SOCKETS_NAMESPACE {
-    #endif
-
 
     // WIN32 adapt
     #define closesocket close
@@ -111,10 +111,6 @@ typedef unsigned long socketuid_t;
     #ifndef INADDR_NONE
     #define INADDR_NONE ((unsigned long) -1)
     #endif // INADDR_NONE
-
-    #ifdef SOCKETS_NAMESPACE
-        }
-    #endif
 
 #endif // !_WIN32
 

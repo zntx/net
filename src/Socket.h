@@ -62,8 +62,7 @@ public:
 
     virtual ~Socket();
 
-
-static  Result<Socket> Create(int famliy, int type, int protno);
+    static  Result<Socket> Create(int famliy, int type, int protno);
 
     /** Create a socket file descriptor.
         \param af Address family AF_INET / AF_INET6 / ...
@@ -95,8 +94,11 @@ static  Result<Socket> Create(int famliy, int type, int protno);
     /** Get address/port of last connect() call. */
     Result<IpAddr> peer_addr();
 
+    /** get socket non-block operation. */
+    bool no_blocking();
+    
     /** Set socket non-block operation. */
-    bool SetNonblocking(bool);
+    bool set_no_blocking(bool);
 
     bool nodelay();
     /** Set socket non-block operation. */
