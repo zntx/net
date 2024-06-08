@@ -8,7 +8,7 @@
 class AddrParseError{
     
 };
-
+#if 0
 class SocketAddrV4{
 public:
     struct sockaddr_in sa;
@@ -45,6 +45,7 @@ public:
     std::string to_string();
 
 };
+#endif
 
 class SocketAddr{
 public:
@@ -66,16 +67,20 @@ public:
     static Result<SocketAddr> Create( Slice<const char> domain);
 
     SocketAddr();
-    explicit SocketAddr(struct sockaddr_storage addr);
-    //SocketAddr(struct sockaddr_storage& addr);
+    explicit SocketAddr(struct in_addr addr, uint16_t port);
+    explicit SocketAddr(struct in6_addr addr, uint16_t port);
+    explicit SocketAddr(IpAddr addr, uint16_t port);
+    SocketAddr(struct sockaddr_storage& addr);
     explicit SocketAddr(struct sockaddr_storage* addr);
     //SocketAddr(struct sockaddr *ai_addr );
-    explicit SocketAddr(SocketAddrV4 v4);
-    explicit SocketAddr(SocketAddrV6 v6);
+//    explicit SocketAddr(SocketAddrV4 v4);
+//    explicit SocketAddr(SocketAddrV6 v6);
     SocketAddr(const SocketAddr & addr);
-    SocketAddr(SocketAddr && addr) noexcept ;
+    SocketAddr(SocketAddr && addr)  ;
 
-    SocketAddr& operator=(SocketAddr&& slice) noexcept ;
+
+
+    SocketAddr& operator=(SocketAddr&& slice) ;
     SocketAddr& operator=(const SocketAddr& slice);
 
     bool is_v4();

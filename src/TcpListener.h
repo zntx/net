@@ -22,19 +22,35 @@ class TcpListener : public Socket
 {
 
 public:
-    static Result<TcpListener> Bin(SocketAddr host , int backlog =24);
-    static Result<TcpListener> Bin(Slice<const char> host, uint16_t port = 80);
-    static Result<TcpListener> Bin(std::string domain, uint16_t port = 80);
+    static Result<TcpListener> Bind(SocketAddr host , int backlog = 24);
+    static Result<TcpListener> Bind(Slice<const char> host, uint16_t port = 80, int backlog=24);
+    static Result<TcpListener> Bind(std::string domain, uint16_t port = 80, int backlog=24);
+    static Result<TcpListener> Bind(std::string domain, int backlog=24);
 
     explicit TcpListener(SOCKET fd);
     TcpListener(TcpListener &other) = delete;
     TcpListener(const TcpListener &other) = delete;
-    TcpListener(TcpListener &&other) noexcept ;
+    TcpListener(TcpListener &&other)  ;
 
 
-    Result<std::pair<TcpStream, SocketAddr>> accept();
+    Result<std::pair<TcpStream, SocketAddr>> accept(uint32_t msecond = 0);
+    Result<std::pair<TcpStream, SocketAddr>> accept(struct timeval timeout ={0,0});
 
-    Result<std::pair<TcpStream, SocketAddr>> accept_timeout(uint32_t msecond);
+    template<typename Rep, typename Period>
+    Result<std::pair<TcpStream, SocketAddr>> accept(  const chrono::duration<Rep, Period>& rtime) {
+        if (rtime <= rtime.zero())
+            return accept( 0);
+
+        auto _s = chrono::duration_cast<chrono::seconds>(rtime);
+        auto _us = chrono::duration_cast<chrono::microseconds>(rtime - _s);
+
+        struct timeval timeout{0,0};
+        timeout.tv_sec = _s;
+        timeout.tv_usec = _us;
+
+        return accept( timeout);
+    }
+
 
 };
 

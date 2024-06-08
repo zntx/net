@@ -15,7 +15,10 @@ using namespace std::chrono;
 class UdpSocket : public Socket
 {
 public:
-    static Result<UdpSocket,int> Bind(std::string domain);
+    static Result<UdpSocket> Bind(SocketAddr host, int backlog=24);
+    static Result<UdpSocket> Bind(Slice<const char> host, uint16_t port, int backlog=24);
+    static Result<UdpSocket> Bind(std::string domain, uint16_t port, int backlog=24);
+    static Result<UdpSocket> Bind(std::string domain, int backlog=24);
 
     static Result<UdpSocket> Connect(SocketAddr host, struct timeval timeout = {0,0});
     static Result<UdpSocket> Connect(const std::string& domain, struct timeval timeout = {0,0});

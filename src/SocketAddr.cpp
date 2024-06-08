@@ -7,7 +7,7 @@
 #include "IpAddr.h"
 #include "SocketAddr.h"
 
-
+#if 0
 Result<SocketAddrV4> SocketAddrV4::parse_ascii(Slice<uint8_t> slice)
 {
     return Err(std::string(StrError(Errno)));
@@ -99,7 +99,7 @@ std::string SocketAddrV6::to_string()
 
     return std::string(ip_str) + ":" + std::to_string(this->port());
 }
-
+#endif
 /*
 
 */
@@ -126,10 +126,10 @@ Result<SocketAddr> SocketAddr::Create(Slice<const char> domain, uint16_t port)
 
     if (addr.is_v4)
     {
-        return Ok(SocketAddr(SocketAddrV4(addr.sin4, port)));
+        return Ok(SocketAddr(addr.sin4, port));
     }
 
-    return Ok(SocketAddr(SocketAddrV6(addr.sin6, port)));
+    return Ok(SocketAddr(addr.sin6, port));
 }
 
 Result<SocketAddr> SocketAddr::Create( Slice<const char> domain)
@@ -197,7 +197,34 @@ SocketAddr::SocketAddr()
     sin.ss_family = AF_UNSPEC;
 }
 
-SocketAddr::SocketAddr(struct sockaddr_storage addr)
+SocketAddr::SocketAddr(struct in_addr addr, uint16_t port)
+{
+    sin.ss_family = AF_INET;
+    sin4.sin_addr = addr;
+    sin4.sin_port = htons(port);
+}
+
+SocketAddr::SocketAddr(struct in6_addr addr, uint16_t port)
+{
+    sin.ss_family = AF_INET6;
+    sin6.sin6_addr = addr;
+    sin6.sin6_port = htons(port);
+}
+
+SocketAddr::SocketAddr(IpAddr addr, uint16_t port)
+{
+    if(addr.is_ipv4( ) ){
+        sin4.sin_family = AF_INET;
+        sin4.sin_addr = addr.sin4.sin;
+        sin4.sin_port = htons(port);
+    }else{
+        sin6.sin6_family = AF_INET;
+        //sin6.sin6_addr = addr.sin6.sin;
+        sin6.sin6_port = htons(port);
+    }
+}
+
+SocketAddr::SocketAddr(struct sockaddr_storage& addr)
 {
     sin.ss_family = addr.ss_family;
 
@@ -230,14 +257,14 @@ SocketAddr::SocketAddr(struct sockaddr_storage *addr)
 
 }
 
-SocketAddr::SocketAddr(SocketAddrV4 v4)
-{
-    memcpy(&sin4, &v4.sa, sizeof(struct sockaddr_in));
-}
-SocketAddr::SocketAddr(SocketAddrV6 v6)
-{
-    memcpy(&sin6, &v6.sa, sizeof(struct sockaddr_in6));
-}
+//SocketAddr::SocketAddr(SocketAddrV4 v4)
+//{
+//    memcpy(&sin4, &v4.sa, sizeof(struct sockaddr_in));
+//}
+//SocketAddr::SocketAddr(SocketAddrV6 v6)
+//{
+//    memcpy(&sin6, &v6.sa, sizeof(struct sockaddr_in6));
+//}
 
 SocketAddr::SocketAddr(const SocketAddr &addr)
 {
@@ -358,3 +385,5 @@ bool SocketAddr::is_v6()
 {
     return  sin.ss_family == AF_INET6;
 }
+
+

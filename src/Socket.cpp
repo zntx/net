@@ -196,11 +196,11 @@ Result<void> Socket::connect(SocketAddr addr)
 }
 
 
-/**@brief	°ó¶¨socket
- * @param[in]  socket_fd ´´½¨µÄÌ×½Ó×Ö
- * @param[in]  p_cpa_addr Òª°ó¶¨µÄµØÖ·½á¹¹(°üº¬Ð­Òé×å,¶Ë¿Ú,µØÖ·)
- * @param[out] ÎÞ
- * @return	  ³É¹¦/Ê§°Ü
+/**@brief	ï¿½ï¿½socket
+ * @param[in]  socket_fd ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×½ï¿½ï¿½ï¿½
+ * @param[in]  p_cpa_addr Òªï¿½ó¶¨µÄµï¿½Ö·ï¿½á¹¹(ï¿½ï¿½ï¿½ï¿½Ð­ï¿½ï¿½ï¿½ï¿½,ï¿½Ë¿ï¿½,ï¿½ï¿½Ö·)
+ * @param[out] ï¿½ï¿½
+ * @return	  ï¿½É¹ï¿½/Ê§ï¿½ï¿½
  */
 Result<void> Socket::bind( SocketAddr& addr)
 {
@@ -234,7 +234,7 @@ Result<void> Socket::select( uint32_t msecond)
     FD_ZERO(&set);
     FD_SET(fd, &set);
 
-    // Çå³ý´íÎó
+    // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     int opt_val = 0;
     int length = sizeof(opt_val);
 
@@ -275,9 +275,9 @@ Result<SocketAddr> Socket::local()
         return Err(std::string(StrError(Errno)));
 
     if( sa.ss_family == AF_INET)
-        return Ok(SocketAddr((struct sockaddr_in*)&sa));
+        return Ok(SocketAddr((struct sockaddr_storage*)&sa));
     else
-        return Ok(SocketAddr((struct sockaddr_in6*)&sa));
+        return Ok(SocketAddr((struct sockaddr_storage*)&sa));
 }
 
 /** Returns local port number for bound socket file descriptor. */
@@ -364,9 +364,9 @@ Result<SocketAddr> Socket::peer()
         return Err(std::string(StrError(Errno)));
 
     if( sa.ss_family == AF_INET)
-        return Ok(SocketAddr((struct sockaddr_in*)&sa));
+        return Ok(SocketAddr((struct sockaddr_storage*)&sa));
     else
-        return Ok(SocketAddr((struct sockaddr_in6*)&sa));
+        return Ok(SocketAddr((struct sockaddr_storage*)&sa));
 }
 
 /** Returns remote port number: ipv4 and ipv6. */

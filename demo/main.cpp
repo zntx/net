@@ -5,10 +5,11 @@ int test_client(int agrc, char *agrv[])
     struct timeval timeout;
     timeout.tv_sec = 10;
     timeout.tv_usec = 10;
-    auto stream_pack = TcpStream::Connect_timeout("10.112.219.204:80", timeout);
+    auto stream_pack = TcpStream::Connect("10.112.219.204:80", timeout);
+    //auto stream_pack = TcpStream::Connect("[fe80::1b01:c877:1297:9129]:80", timeout);
     if (stream_pack.is_err())
     {
-        printf("connect fail£º %s \n", stream_pack.unwrap_err().c_str());
+        printf("connect failï¿½ï¿½ %s \n", stream_pack.unwrap_err().c_str());
         return -1;
     }
 
@@ -65,7 +66,7 @@ int test_server(int agrc, char *agrv[])
 {
     const char* host = "0.0.0.0";
 
-    auto listener_pack = TcpListener::Bin(Slice<const char>(host, strlen(host)), 9005);
+    auto listener_pack = TcpListener::Bind(Slice<const char>(host, strlen(host)), 9005, 0);
     if (listener_pack.is_err())
     {
         printf("connect fail %s \n", listener_pack.unwrap_err().c_str());
@@ -84,7 +85,7 @@ int test_server(int agrc, char *agrv[])
 
 
     while(1) {
-        auto stream_pack = listener.accept_timeout(10*1000);
+        auto stream_pack = listener.accept(10 * 1000);
         if (stream_pack.is_err())
         {
             printf("Accept fail %s \n", stream_pack.unwrap_err().c_str());
@@ -116,7 +117,7 @@ int main2(int agrc, char *agrv[])
 {
     WSADATA wsaData;
     if(WSAStartup(MAKEWORD(2,2),&wsaData)){
-        cout<<"WinSock²»ÄÜ±»³õÊ¼»¯";
+        cout<<"WinSockï¿½ï¿½ï¿½Ü±ï¿½ï¿½ï¿½Ê¼ï¿½ï¿½";
         WSACleanup();
         return 0;
     }
@@ -250,7 +251,7 @@ int main(int agrc, char *agrv[])
 //    }
 
 
-    //test_client(agrc, agrv);
+    test_client(agrc, agrv);
 
-    test_server(agrc, agrv);
+    //test_server(agrc, agrv);
 }

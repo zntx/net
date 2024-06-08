@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#include <algorithm>
 
 #include <iostream>
 #include "socket_include.h"
@@ -10,7 +11,7 @@
 #include "TcpListener.h"
 
 
-Result<TcpListener> TcpListener::Bin(SocketAddr host , int backlog)
+Result<TcpListener> TcpListener::Bind(SocketAddr host , int backlog)
 {
     auto server = Socket::Create(host.sin4.sin_family, SOCK_STREAM, IPPROTO_TCP);
     if( server.is_err())
@@ -33,7 +34,7 @@ Result<TcpListener> TcpListener::Bin(SocketAddr host , int backlog)
 }
 
 
-Result<TcpListener> TcpListener::Bin(Slice<const char> host, uint16_t port)
+Result<TcpListener> TcpListener::Bind(Slice<const char> host, uint16_t port, int backlog)
 {
     SOCKET stream = INVALID_SOCKET;
     struct addrinfo hints;
@@ -59,7 +60,7 @@ Result<TcpListener> TcpListener::Bin(Slice<const char> host, uint16_t port)
 
             std::cout << "ip_addr :" << ip_addr.to_string() << "." << std::endl;
 
-            auto server = Bin(ip_addr);
+            auto server = Bind(ip_addr);
             if( server.is_err())
                 continue;
 
@@ -91,6 +92,60 @@ Result<TcpListener> TcpListener::Bin(Slice<const char> host, uint16_t port)
     return Err(std::string(StrError(Errno)));
 }
 
+
+Result<TcpListener> TcpListener::Bind(std::string domain, uint16_t port, int backlog) {
+    return Bind(Slice<const char>{domain.c_str(), domain.length()}, port, 0);
+}
+
+Result<TcpListener> TcpListener::Bind(std::string domain, int backlog) {
+
+    int num = std::count(domain.begin(),domain.end(),':');
+    std::cout << " std::count " << num << std::endl;
+    if( num >= 2)
+    {
+        std::size_t start = domain.find('[');
+        std::size_t end = domain.find("]:");
+
+        if( start == std::string::npos && end == std::string::npos)
+        {
+            return Bind(Slice<const char>(domain.c_str(), domain.length()), 80, 0);
+        }
+
+        if ( start ==  std::string::npos || end == std::string::npos)
+        {
+            return Err(std::string ("Illegal string"));
+        }
+
+        if (  start > end )
+        {
+            return Err(std::string ("Illegal string"));
+        }
+        std::string host = domain.substr(start + 1, end);   // get from "live" to the end
+
+        std::string ports = domain.substr(end +2); // get from "live" to the end
+        if( ports.empty())
+            return Err(std::string ("Illegal string"));
+
+        int port = atoi(ports.c_str());
+
+        return Bind(Slice<const char>(host.c_str(), host.length()), port, 0);
+    }
+    else if (num == 1)
+    {
+        std::size_t pos = domain.find(':'); // position of "live" in str
+        std::string host = domain.substr(0, pos);   // get from "live" to the end
+        std::string ports = domain.substr(pos + 1); // get from "live" to the end
+        int port = atoi(ports.c_str());
+
+        return Bind(Slice<const char>(host.c_str(), host.length()), port, 0);
+    }
+    else
+    {
+        return Bind(Slice<const char>(domain.c_str(), domain.length()), 80, 0);
+    }
+}
+
+
 TcpListener::TcpListener(SOCKET fd) : Socket(fd)
 {
 }
@@ -100,27 +155,27 @@ TcpListener::TcpListener(TcpListener &&other) : Socket(other.fd)
     other.fd  = -1;
 }
 
-Result<std::pair<TcpStream, SocketAddr>> TcpListener::accept()
-{
-    struct sockaddr_storage clent_addr;
-    int addr_size = sizeof(struct sockaddr_storage);
 
-    int connect_fd = ::accept(this->fd, (struct sockaddr *)&clent_addr, (socklen_t *)&addr_size);
-    if (connect_fd < 0)
+Result<std::pair<TcpStream, SocketAddr>> TcpListener::accept( struct timeval timeout)
+{
+    if( timeout.tv_sec == 0 && timeout.tv_usec == 0)
     {
-        fprintf(stdout, "%s:%d accept failed: [errno  \n", __FILE__, __LINE__);
-        return Err(std::string(StrError(Errno)));
+        struct sockaddr_storage clent_addr;
+        int addr_size = sizeof(struct sockaddr_storage);
+
+        int connect_fd = ::accept(this->fd, (struct sockaddr *)&clent_addr, (socklen_t *)&addr_size);
+        if (connect_fd < 0)
+        {
+            fprintf(stdout, "%s:%d accept failed: [errno  \n", __FILE__, __LINE__);
+            return Err(std::string(StrError(Errno)));
+        }
+
+        return Ok(std::pair<TcpStream, SocketAddr>{TcpStream(connect_fd), SocketAddr(clent_addr)});
     }
-
-    return Ok(std::pair<TcpStream, SocketAddr>{TcpStream(connect_fd), SocketAddr(clent_addr)});
-}
-
-Result<std::pair<TcpStream, SocketAddr>> TcpListener::accept_timeout(uint32_t msecond)
-{
-    /* Èç¹ûÓĞ³¬Ê±Ê±¼ä£¬µ÷ÓÃselectÅĞ¶ÏÔÚ³¬Ê±Ê±¼äÄÚ£¬ÊÇ·ñÓĞÊı¾İ´«Êä½øÀ´ */
-    struct timeval timeout;
-    timeout.tv_sec = msecond / 1000;
-    timeout.tv_usec = (msecond % 1000) * 1000;
+    /* å¦‚æœæœ‰è¶…æ—¶æ—¶é—´ï¼Œè°ƒç”¨selectåˆ¤æ–­åœ¨è¶…æ—¶æ—¶é—´å†…ï¼Œæ˜¯å¦æœ‰æ•°æ®ä¼ è¾“è¿›æ¥ */
+//    struct timeval timeout;
+//    timeout.tv_sec = msecond / 1000;
+//    timeout.tv_usec = (msecond % 1000) * 1000;
 
     fd_set fdset;
     FD_ZERO(&fdset);
@@ -129,7 +184,7 @@ Result<std::pair<TcpStream, SocketAddr>> TcpListener::accept_timeout(uint32_t ms
     do {
         int ret = ::select(fd + 1, &fdset, nullptr, nullptr, &timeout);
 
-        /* ÔÚÖ¸¶¨Ê±¼äÄÚ£¬Èô¼ì²âµ½¶Ë¿Ú¿É¶Á£¬ÏÈ²»×ö´¦Àí£¬µÈ´ıºóĞøÊ¹ÓÃaccept½ÓÊÕÊı¾İ£¬·ñÔòÖ±½Ó·µ»Ø */
+        /* åœ¨æŒ‡å®šæ—¶é—´å†…ï¼Œè‹¥æ£€æµ‹åˆ°ç«¯å£å¯è¯»ï¼Œå…ˆä¸åšå¤„ç†ï¼Œç­‰å¾…åç»­ä½¿ç”¨acceptæ¥æ”¶æ•°æ®ï¼Œå¦åˆ™ç›´æ¥è¿”å› */
         if (ret > 0) {
             if (FD_ISSET(fd, &fdset)) {
                 break;
@@ -166,3 +221,19 @@ Result<std::pair<TcpStream, SocketAddr>> TcpListener::accept_timeout(uint32_t ms
 
     return Ok(std::pair<TcpStream, SocketAddr>{TcpStream(connect_fd), SocketAddr(clent_addr)});
 }
+
+Result<std::pair<TcpStream, SocketAddr>> TcpListener::accept(uint32_t msecond)
+{
+    if( msecond == 0)
+    {
+        return accept({0,0});
+    }
+    /* å¦‚æœæœ‰è¶…æ—¶æ—¶é—´ï¼Œè°ƒç”¨selectåˆ¤æ–­åœ¨è¶…æ—¶æ—¶é—´å†…ï¼Œæ˜¯å¦æœ‰æ•°æ®ä¼ è¾“è¿›æ¥ */
+    struct timeval timeout;
+    timeout.tv_sec = msecond / 1000;
+    timeout.tv_usec = (msecond % 1000) * 1000;
+
+    return accept(timeout);
+}
+
+

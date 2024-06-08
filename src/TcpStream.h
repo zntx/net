@@ -21,20 +21,63 @@ class TcpStream : public Socket
 {
 
 public:
-    static Result<TcpStream> Connect(std::string domain);
-    static Result<TcpStream> Connect(Slice<const char> host, size_t port);
-    static Result<TcpStream> Connect(SocketAddr &addr);
+    static Result<TcpStream> Connect(SocketAddr &addr, struct timeval  = {0,0});
+    static Result<TcpStream> Connect(Slice<const char> host, size_t port, struct timeval  = {0,0});
+    static Result<TcpStream> Connect(const std::string& domain, struct timeval = {0,0});
 
-    static Result<TcpStream> Connect_timeout(std::string domain, struct timeval);
-    static Result<TcpStream> Connect_timeout(Slice<const char> host, size_t port, struct timeval);
-    static Result<TcpStream> Connect_timeout(SocketAddr &addr, struct timeval);
+    static Result<TcpStream> Connect(SocketAddr &addr, uint32_t microseconds = 0);
+    static Result<TcpStream> Connect(Slice<const char> host, size_t port, uint32_t microseconds = 0);
+    static Result<TcpStream> Connect(const std::string& domain, uint32_t microseconds = 0);
+
+    template<typename Rep, typename Period>
+    static Result<TcpStream> Connect( SocketAddr &host, const chrono::duration<Rep, Period>& _rtime) {
+        if (_rtime <= _rtime.zero())
+            return Connect(host ,0);
+        auto _s = chrono::duration_cast<chrono::seconds>(_rtime);
+        auto _us = chrono::duration_cast<chrono::microseconds>(_rtime - _s);
+
+        struct timeval timeout{0,0};
+        timeout.tv_sec = _s;
+        timeout.tv_usec = _us;
+
+        return Connect(host, timeout);
+    }
+
+    template<typename Rep, typename Period>
+    static Result<TcpStream> Connect( std::string &domain, const chrono::duration<Rep, Period>& _rtime) {
+        if (_rtime <= _rtime.zero())
+            return Connect(domain ,0);
+        auto _s = chrono::duration_cast<chrono::seconds>(_rtime);
+        auto _us = chrono::duration_cast<chrono::microseconds>(_rtime - _s);
+
+        struct timeval timeout{0,0};
+        timeout.tv_sec = _s;
+        timeout.tv_usec = _us;
+
+        return Connect(domain, timeout);
+    }
+
+    template<typename Rep, typename Period>
+    static Result<TcpStream> Connect( Slice<const char> &host, size_t port, const chrono::duration<Rep, Period>& _rtime) {
+        if (_rtime <= _rtime.zero())
+            return Connect(host, port ,0);
+        auto _s = chrono::duration_cast<chrono::seconds>(_rtime);
+        auto _us = chrono::duration_cast<chrono::microseconds>(_rtime - _s);
+
+        struct timeval timeout{0,0};
+        timeout.tv_sec = _s;
+        timeout.tv_usec = _us;
+
+        return Connect(host, port , timeout);
+    }
+
 
     ~TcpStream() override;
-    explicit TcpStream(int fd);
-    TcpStream(TcpStream &&other) noexcept ;
+    explicit TcpStream(SOCKET fd);
+    TcpStream(TcpStream &&other)  ;
     TcpStream(TcpStream &other) = delete;
     TcpStream(const TcpStream &other) = delete;
-    TcpStream &operator=(TcpStream &&other) noexcept ;
+    TcpStream &operator=(TcpStream &&other)  ;
 
     size_t write(Slice<uint8_t> &slice);
     size_t read(Slice<char> &slice);
